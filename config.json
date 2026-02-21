@@ -1,0 +1,74 @@
+{
+  "simulation_step": 5,
+  "tempo_amarelo_fixo": 3,
+  "vias": [
+    {
+      "id": 1,
+      "nome": "Entrada Norte",
+      "rgt": 15,
+      "veiculos_atuais": 10,
+      "capacidade": 80,
+      "semaforo": {
+        "cor": 2,
+        "tempo_falta": 20,
+        "destinos": [
+          {"via_id": 6, "ritmo_saida": 15},
+          {"via_id": 7, "ritmo_saida": 10},
+          {"via_id": 8, "ritmo_saida": 10}
+        ]
+      }
+    },
+    {
+      "id": 2,
+      "nome": "Entrada Sul",
+      "rgt": 12,
+      "veiculos_atuais": 5,
+      "capacidade": 80,
+      "semaforo": {
+        "cor": 2,
+        "tempo_falta": 20,
+        "destinos": [
+          {"via_id": 5, "ritmo_saida": 15},
+          {"via_id": 7, "ritmo_saida": 10},
+          {"via_id": 8, "ritmo_saida": 10}
+        ]
+      }
+    },
+    {
+      "id": 3,
+      "nome": "Entrada Este",
+      "rgt": 10,
+      "veiculos_atuais": 15,
+      "capacidade": 80,
+      "semaforo": {
+        "cor": 1,
+        "tempo_falta": 20,
+        "destinos": [
+          {"via_id": 5, "ritmo_saida": 10},
+          {"via_id": 6, "ritmo_saida": 10},
+          {"via_id": 8, "ritmo_saida": 15}
+        ]
+      }
+    },
+    {
+      "id": 4,
+      "nome": "Entrada Oeste",
+      "rgt": 18,
+      "veiculos_atuais": 20,
+      "capacidade": 80,
+      "semaforo": {
+        "cor": 1,
+        "tempo_falta": 20,
+        "destinos": [
+          {"via_id": 5, "ritmo_saida": 10},
+          {"via_id": 6, "ritmo_saida": 10},
+          {"via_id": 7, "ritmo_saida": 15}
+        ]
+      }
+    },
+    { "id": 5, "nome": "Saida Norte", "rgt": 0, "veiculos_atuais": 0, "capacidade": 9999, "semaforo": { "cor": 2, "tempo_falta": 0, "destinos": [] } },
+    { "id": 6, "nome": "Saida Sul", "rgt": 0, "veiculos_atuais": 0, "capacidade": 9999, "semaforo": { "cor": 2, "tempo_falta": 0, "destinos": [] } },
+    { "id": 7, "nome": "Saida Este", "rgt": 0, "veiculos_atuais": 0, "capacidade": 9999, "semaforo": { "cor": 2, "tempo_falta": 0, "destinos": [] } },
+    { "id": 8, "nome": "Saida Oeste", "rgt": 0, "veiculos_atuais": 0, "capacidade": 9999, "semaforo": { "cor": 2, "tempo_falta": 0, "destinos": [] } }
+  ]
+}
