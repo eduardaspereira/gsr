@@ -38,7 +38,9 @@ def simulate_step(vias, get_via_func, step):
             continue
             
         for destino in semaforo.get('destinos', []):
-            taxa_passagem = (destino['ritmo_saida'] * step) / 60.0
+            # Usa 0 como porto de abrigo se o ritmo não estiver definido
+            ritmo = destino.get('ritmo_saida', 0) 
+            taxa_passagem = (ritmo * step) / 60.0
             quantidade_a_passar = min(via['veiculos_atuais'], taxa_passagem)
             
             via_dest = get_via_func(destino['via_id'])

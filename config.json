@@ -44,6 +44,29 @@
     },
     { "id": 99, "nome": "Sumidouro Sul", "rgt": 0, "veiculos_atuais": 0, "capacidade": 9999 },
     { "id": 98, "nome": "Sumidouro Transversal 1", "rgt": 0, "veiculos_atuais": 0, "capacidade": 9999 },
-    { "id": 97, "nome": "Sumidouro Transversal 2", "rgt": 0, "veiculos_atuais": 0, "capacidade": 9999 }
+    { "id": 97, "nome": "Sumidouro Transversal 2", "rgt": 0, "veiculos_atuais": 0, "capacidade": 9999 },
+    {
+      "id": 10,
+      "nome": "Entrada Norte Principal",
+      "cruzamento": 3,
+      "eixo": "NS",
+      "rgt": 0,
+      "veiculos_atuais": 60,
+      "capacidade": 200,
+      "semaforo": { 
+        "cor": 2, 
+        "tempo_falta": 10, 
+        "destinos": [ 
+          {"via_id": 11, "ritmo_saida": 40}, 
+          {"via_id": 12, "ritmo_saida": 20} 
+        ] 
+      }
+    },
+    { "id": 11, "nome": "Via Destino A (66%)", "veiculos_atuais": 0, "capacidade": 100 },
+    { "id": 12, "nome": "Via Destino B (33%)", "veiculos_atuais": 0, "capacidade": 100 }
+  ],
+    "eventos_rgt": [
+    {"tempo_simulacao": 30, "via_id": 1, "novo_rgt": 80, "descricao": "Início Hora de Ponta Norte"},
+    {"tempo_simulacao": 120, "via_id": 1, "novo_rgt": 20, "descricao": "Fim Hora de Ponta Norte"}
   ]
 }

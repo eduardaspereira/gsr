@@ -99,7 +99,6 @@ def calcular_decisao(vias_data, tempo_amarelo_fixo, step):
             if pressao_ns == 0 and pressao_eo == 0:
                 continue # Sem trânsito na rede, mantém vermelho
 
-            # --- CORREÇÃO DO BUG: Mecanismo de Alternativa (Fallback) ---
             # Ordenamos os eixos pela sua prioridade (maior pressão primeiro)
             fases_ordem = [
                 (vias_ns, pressao_ns, "NS"), 
