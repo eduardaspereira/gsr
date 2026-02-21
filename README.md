@@ -1,33 +1,57 @@
 # Projeto GSR - Sistema de Gestão de Tráfego Rodoviário (Fase A)
-Este projeto implementa um protótipo de gestão de tráfego rodoviário baseado na arquitetura INMF utilizando o protocolo SNMPv2c. O objetivo principal é gerir o fluxo de veículos num cruzamento urbano, minimizando os tempos globais de espera.
+Este projeto implementa um sistema de gestão de tráfego rodoviário baseado na arquitetura Internet-standard Network Management Framework (INMF). Utiliza o protocolo SNMPv2c para monitorizar e controlar o fluxo de veículos em tempo quase-real, visando a minimização dos tempos médios de espera.
+## Funcionalidades Principais
+- **Arquitetura de Componentes**: Divisão clara entre Sistema Central (Agente), Simulador, Decisor e Consolas (Gestores).
 
-## Lógica do Sistema
-O projeto está dividido em quatro componentes principais:  
- - Sistema Central (SC) + MIB: Atua como o Agente SNMP (sc_agent.py). Mantém a base de dados (roadTable) em memória com toda a informação do cruzamento (veículos, cor dos semáforos, ritmos).  
+- **Modelo de Informação SMIv2**: Implementação de uma MIB experimental estruturada em tabelas (roadTable e roadLinkTable) para representar a rede como um grafo.
 
- - Sistema de Simulação (SSFR): Corre dentro do SC (ssfr.py). Injeta veículos nas vias a um Ritmo Gerador de Tráfego (RGT) e move os carros pelos semáforos a cada ciclo de 5 segundos.  
+- **Controlo Inteligente (SD)**: Algoritmo que utiliza heurísticas de pressão e a funcionalidade de "Onda Verde" para antecipar pelotões de veículos.
 
- - Sistema de Decisão (SD): Corre dentro do SC (sistema_decisao.py). Utiliza uma Heurística de Exclusão Mútua. Em vez de olhar para vias isoladas, o SD divide o cruzamento em duas Fases (Eixo Norte-Sul e Eixo Este-Oeste). O sistema avalia qual dos eixos tem a maior fila de espera total e dá-lhe prioridade (Sinal Verde), trancando o eixo transversal (Sinal Vermelho) para evitar colisões mortais no centro. Além disso, previne deadlocks verificando se a via de destino tem capacidade antes de abrir o sinal.  
+- **Simulação Realista (SSFR)**: Passos de 5 segundos que processam o movimento físico, escoamento para sumidouros e gestão de capacidade das vias.
 
- - Consola de Monitorização e Controlo (CMC): Atua como o Gestor SNMP (cmc_manager.py e cmc_grafica.py). Descobre dinamicamente a topologia da rede através de um SNMP Walk e permite alterar os RGTs em tempo real .  
+- **Monitorização Multi-Consola**: Inclui uma consola de gestão tabular e uma interface gráfica em ASCII com cores ANSI.
+
+## Estrutura do Sistema 
+**Sistema Central (SC)**:
+- Atua como o Agente SNMPv2c (Porta 1161).
+- Gere a instrumentação dinâmica da MIB baseada no ficheiro config.json.
+- Sincroniza em tempo real os dados da simulação com os objetos SNMP (ex: roadVehicleCount, roadLightColor). 
+
+**Sistema de Simulação (SSFR)**: 
+- Simula a entrada de veículos via Ritmo Gerador de Tráfego (RGT).
+- Calcula estatísticas de performance, como o tempo médio de espera por via.
+- Gere o escoamento para fora da rede (vias sumidouro) e a ocupação máxima das vias para evitar bloqueios físicos.
+
+**Sistema de Decisão (SD)**:
+- Heurística de Pressão: Prioriza eixos com maior acumulação de veículos.
+- Onda Verde: Analisa os cruzamentos adjacentes; se um pelotão está a chegar a verde de uma via anterior, o SD aumenta a "pressão virtual" para abrir o próximo sinal antecipadamente.
+- Prevenção de Deadlock: O sinal não abre se a via de destino estiver com ocupação superior a 90%.
+- Segurança: Garante exclusão mútua total e respeita o tempo de amarelo fixo.
+
+**Consola de Monitorização e Controlo (CMC)**:
+- Descoberta Dinâmica: Utiliza GETNEXT (SNMP Walk) para descobrir automaticamente os IDs das vias ativas sem configuração prévia.
+- Controlo Ativo: Permite ao administrador alterar os RGTs via comandos SET SNMP.
+- Visualização ANSI: O mapa gráfico ilustra a topologia e o estado dos semáforos em tempo real usando blocos de cores.
+
 
 ## Compilar MIB
-Antes da primeira execução, é obrigatório compilar o ficheiro de texto da MIB (ProjetoGSR.mib) para um formato Python que o agente consiga ler. Na diretoria do projeto, para gerar o ficheiro TRAFFIC-MGMT-MIB.py, corre:  
+Antes da primeira execução, é obrigatório compilar o ficheiro de texto da MIB (ProjetoGSR.mib) para um formato Python que o agente consiga ler:  
 ```bash
 mibdump --mib-source=file:///usr/share/snmp/mibs --mib-source=https://mibs.pysnmp.com/asn1/@mib@ --mib-source=file://. --destination-directory=. --destination-format=pysnmp ProjetoGSR.mib
 ```
+
 ## Demonstração
-Terminal 1 (O Servidor): Inicia o Sistema Central. Ele vai carregar o mapa do config.json e ficar à escuta na porta 1161.  
+Terminal 1 (O Servidor): Inicia o Sistema Central para carregar o mapa do config.json e ficar à escuta na porta 1161.  
 ```Bash
 python3 sc_agent.py
 ```
 
-Terminal 2 (A Tabela / Controlo): Inicia a CMC. Ela vai desenhar uma tabela com as 8 vias e ficar à espera dos teus comandos.
+Terminal 2 (A Tabela / Controlo): Inicia a CMC para desenhar uma tabela com as 8 vias e ficar à espera dos teus comandos.
 ```Bash
 python3 cmc_manager.py
 ```
 
-Terminal 3 (O Mapa Gráfico): Inicia o visualizador ASCII para veres o cruzamento em tempo real.
+Terminal 3 (O Mapa Gráfico): Inicia o visualizador ASCII para ver o cruzamento em tempo real.
 ```Bash
 python3 cmc_grafica.py
 ```
@@ -96,7 +120,14 @@ Ao alterar o RGT (ex: injetando muitos carros na Via 1), vai-se observar o segui
 
 4. **Segurança**: O Eixo transversal (Este-Oeste) fica bloqueado a Vermelho durante este processo, garantindo que não há colisões e simulando o comportamento real de um cruzamento. 
 
-## Executar testes
+## Testes de Validação
+O projeto inclui uma bateria de 12 testes unitários e de integração que validam:
+- Exclusão mútua e segurança.
+- Prevenção de deadlocks com destinos lotados.
+- Precisão matemática da injeção de veículos.
+- Lógica de antecipação (Onda Verde).
+- Escoamento em sumidouros.
+
 ```bash
 python3 Tests.py
 ```
