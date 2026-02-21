@@ -85,6 +85,25 @@ class TrafficSystem:
         for via in self.data['vias']:
             v_id = via['id']
             
+            # roadName (Read-Only)
+            oid_name = (1, 3, 6, 1, 4, 1, 9999, 1, 1, 2, 1, 2, v_id)
+            inst_name = MibScalarInstance(oid_name, (0,), rfc1902.OctetString(via['nome']))
+            mib_builder.export_symbols('TRAFFIC-MIB', **{f'name_{v_id}': MibScalar(oid_name, rfc1902.OctetString()).setMaxAccess('read-only'), f'name_inst_{v_id}': inst_name})
+
+            # roadMaxCapacity (Read-Only)
+            oid_cap = (1, 3, 6, 1, 4, 1, 9999, 1, 1, 2, 1, 5, v_id)
+            inst_cap = MibScalarInstance(oid_cap, (0,), rfc1902.Gauge32(via.get('capacidade', 100)))
+            mib_builder.export_symbols('TRAFFIC-MIB', **{f'cap_{v_id}': MibScalar(oid_cap, rfc1902.Gauge32()).setMaxAccess('read-only'), f'cap_inst_{v_id}': inst_cap})
+
+            # Instrumentação da roadLinkTable (Vias de Destino e Ritmos de Saída)
+            if 'semaforo' in via and 'destinos' in via['semaforo']:
+                for dest in via['semaforo']['destinos']:
+                    d_id = dest['via_id']
+                    # linkFlowRate (Read-Write)
+                    oid_link = (1, 3, 6, 1, 4, 1, 9999, 1, 1, 3, 1, 2, v_id, d_id)
+                    inst_link = MibScalarInstance(oid_link, (0,), rfc1902.Gauge32(dest['ritmo_saida']))
+                    mib_builder.export_symbols('TRAFFIC-MIB', **{f'link_{v_id}_{d_id}': MibScalar(oid_link, rfc1902.Gauge32()).setMaxAccess('read-write'), f'link_inst_{v_id}_{d_id}': inst_link})
+                    
             # roadRTG (Read-Write)
             oid_rgt = (1, 3, 6, 1, 4, 1, 9999, 1, 1, 2, 1, 4, v_id)
             inst_rgt = MibScalarInstance(oid_rgt, (0,), rfc1902.Gauge32(int(via.get('rgt', 0))))

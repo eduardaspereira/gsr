@@ -40,7 +40,7 @@ async def discover_vias(snmp_engine):
             break
             
         # O ID da via é o último número do OID (ex: 1.3.6.1.4.1.9999.1.1.2.1.6.4 -> ID 4)
-        via_id = int(name_str.split('.')[-1])
+        via_id = int(name_str.split('.')[-2])
         
         if via_id not in vias_descobertas:
             vias_descobertas.append(via_id)

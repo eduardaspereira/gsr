@@ -8,7 +8,7 @@
 # Notes
 # -----
 # ASN.1 source file://./ProjetoGSR.mib
-# Produced by pysmi-1.6.3 at Fri Feb 20 22:24:21 2026
+# Produced by pysmi-1.6.3 at Sat Feb 21 10:46:13 2026
 # On host DESKTOP-P3U48S2 platform Linux version 6.6.87.2-microsoft-standard-WSL2 by user duds
 # Using Python version 3.10.12 (main, Jan 26 2026, 14:55:28) [GCC 11.4.0]
 
@@ -91,10 +91,12 @@ if 'mibBuilder' not in globals():
 
 (DisplayString,
  PhysAddress,
+ RowStatus,
  TextualConvention) = mibBuilder.importSymbols(
     "SNMPv2-TC",
     "DisplayString",
     "PhysAddress",
+    "RowStatus",
     "TextualConvention")
 
 
@@ -112,24 +114,9 @@ if mibBuilder.loadTexts:
 # Types definitions
 
 
-# TEXTUAL-CONVENTIONS
 
-
-
-# MIB Managed Objects in the order of their OIDs
-
-_TrafficObjects_ObjectIdentity = ObjectIdentity
-trafficObjects = _TrafficObjects_ObjectIdentity(
-    (1, 3, 6, 1, 3, 2026, 1)
-)
-_TrafficGeneral_ObjectIdentity = ObjectIdentity
-trafficGeneral = _TrafficGeneral_ObjectIdentity(
-    (1, 3, 6, 1, 3, 2026, 1, 1)
-)
-
-
-class _SimStatus_Type(Integer32):
-    """Custom type simStatus based on Integer32"""
+class SimOperStatus(Integer32):
+    """Custom type SimOperStatus based on Integer32"""
     subtypeSpec = Integer32.subtypeSpec
     subtypeSpec += ConstraintsUnion(
         SingleValueConstraint(
@@ -145,7 +132,81 @@ class _SimStatus_Type(Integer32):
     )
 
 
-_SimStatus_Type.__name__ = "Integer32"
+
+
+
+class RoadType(Integer32):
+    """Custom type RoadType based on Integer32"""
+    subtypeSpec = Integer32.subtypeSpec
+    subtypeSpec += ConstraintsUnion(
+        SingleValueConstraint(
+            *(1,
+              2,
+              3)
+        )
+    )
+    namedValues = NamedValues(
+        *(("normal", 1),
+          ("sink", 2),
+          ("source", 3))
+    )
+
+
+
+
+
+class TrafficColor(Integer32):
+    """Custom type TrafficColor based on Integer32"""
+    subtypeSpec = Integer32.subtypeSpec
+    subtypeSpec += ConstraintsUnion(
+        SingleValueConstraint(
+            *(1,
+              2,
+              3)
+        )
+    )
+    namedValues = NamedValues(
+        *(("red", 1),
+          ("green", 2),
+          ("yellow", 3))
+    )
+
+
+
+
+
+class LinkState(Integer32):
+    """Custom type LinkState based on Integer32"""
+    subtypeSpec = Integer32.subtypeSpec
+    subtypeSpec += ConstraintsUnion(
+        SingleValueConstraint(
+            *(1,
+              2)
+        )
+    )
+    namedValues = NamedValues(
+        *(("active", 1),
+          ("inactive", 2))
+    )
+
+
+
+
+# TEXTUAL-CONVENTIONS
+
+
+
+# MIB Managed Objects in the order of their OIDs
+
+_TrafficObjects_ObjectIdentity = ObjectIdentity
+trafficObjects = _TrafficObjects_ObjectIdentity(
+    (1, 3, 6, 1, 3, 2026, 1)
+)
+_TrafficGeneral_ObjectIdentity = ObjectIdentity
+trafficGeneral = _TrafficGeneral_ObjectIdentity(
+    (1, 3, 6, 1, 3, 2026, 1, 1)
+)
+_SimStatus_Type = SimOperStatus
 _SimStatus_Object = MibScalar
 simStatus = _SimStatus_Object(
     (1, 3, 6, 1, 3, 2026, 1, 1, 1),
@@ -266,35 +327,16 @@ roadName = _RoadName_Object(
     (1, 3, 6, 1, 3, 2026, 1, 2, 1, 2),
     _RoadName_Type()
 )
-roadName.setMaxAccess("read-only")
+roadName.setMaxAccess("read-create")
 if mibBuilder.loadTexts:
     roadName.setStatus("current")
-
-
-class _RoadType_Type(Integer32):
-    """Custom type roadType based on Integer32"""
-    subtypeSpec = Integer32.subtypeSpec
-    subtypeSpec += ConstraintsUnion(
-        SingleValueConstraint(
-            *(1,
-              2,
-              3)
-        )
-    )
-    namedValues = NamedValues(
-        *(("normal", 1),
-          ("sink", 2),
-          ("source", 3))
-    )
-
-
-_RoadType_Type.__name__ = "Integer32"
+_RoadType_Type = RoadType
 _RoadType_Object = MibTableColumn
 roadType = _RoadType_Object(
     (1, 3, 6, 1, 3, 2026, 1, 2, 1, 3),
     _RoadType_Type()
 )
-roadType.setMaxAccess("read-only")
+roadType.setMaxAccess("read-create")
 if mibBuilder.loadTexts:
     roadType.setStatus("current")
 _RoadRTG_Type = Gauge32
@@ -303,7 +345,7 @@ roadRTG = _RoadRTG_Object(
     (1, 3, 6, 1, 3, 2026, 1, 2, 1, 4),
     _RoadRTG_Type()
 )
-roadRTG.setMaxAccess("read-write")
+roadRTG.setMaxAccess("read-create")
 if mibBuilder.loadTexts:
     roadRTG.setStatus("current")
 _RoadMaxCapacity_Type = Gauge32
@@ -312,7 +354,7 @@ roadMaxCapacity = _RoadMaxCapacity_Object(
     (1, 3, 6, 1, 3, 2026, 1, 2, 1, 5),
     _RoadMaxCapacity_Type()
 )
-roadMaxCapacity.setMaxAccess("read-only")
+roadMaxCapacity.setMaxAccess("read-create")
 if mibBuilder.loadTexts:
     roadMaxCapacity.setStatus("current")
 _RoadVehicleCount_Type = Gauge32
@@ -324,26 +366,7 @@ roadVehicleCount = _RoadVehicleCount_Object(
 roadVehicleCount.setMaxAccess("read-only")
 if mibBuilder.loadTexts:
     roadVehicleCount.setStatus("current")
-
-
-class _RoadLightColor_Type(Integer32):
-    """Custom type roadLightColor based on Integer32"""
-    subtypeSpec = Integer32.subtypeSpec
-    subtypeSpec += ConstraintsUnion(
-        SingleValueConstraint(
-            *(1,
-              2,
-              3)
-        )
-    )
-    namedValues = NamedValues(
-        *(("red", 1),
-          ("green", 2),
-          ("yellow", 3))
-    )
-
-
-_RoadLightColor_Type.__name__ = "Integer32"
+_RoadLightColor_Type = TrafficColor
 _RoadLightColor_Object = MibTableColumn
 roadLightColor = _RoadLightColor_Object(
     (1, 3, 6, 1, 3, 2026, 1, 2, 1, 7),
@@ -381,6 +404,15 @@ if mibBuilder.loadTexts:
     roadAverageWaitTime.setStatus("current")
 if mibBuilder.loadTexts:
     roadAverageWaitTime.setUnits("seconds")
+_RoadRowStatus_Type = RowStatus
+_RoadRowStatus_Object = MibTableColumn
+roadRowStatus = _RoadRowStatus_Object(
+    (1, 3, 6, 1, 3, 2026, 1, 2, 1, 11),
+    _RoadRowStatus_Type()
+)
+roadRowStatus.setMaxAccess("read-create")
+if mibBuilder.loadTexts:
+    roadRowStatus.setStatus("current")
 _RoadLinkTable_Object = MibTable
 roadLinkTable = _RoadLinkTable_Object(
     (1, 3, 6, 1, 3, 2026, 1, 3)
@@ -422,35 +454,27 @@ linkFlowRate = _LinkFlowRate_Object(
     (1, 3, 6, 1, 3, 2026, 1, 3, 1, 2),
     _LinkFlowRate_Type()
 )
-linkFlowRate.setMaxAccess("read-write")
+linkFlowRate.setMaxAccess("read-create")
 if mibBuilder.loadTexts:
     linkFlowRate.setStatus("current")
-
-
-class _LinkActive_Type(Integer32):
-    """Custom type linkActive based on Integer32"""
-    subtypeSpec = Integer32.subtypeSpec
-    subtypeSpec += ConstraintsUnion(
-        SingleValueConstraint(
-            *(1,
-              2)
-        )
-    )
-    namedValues = NamedValues(
-        *(("active", 1),
-          ("inactive", 2))
-    )
-
-
-_LinkActive_Type.__name__ = "Integer32"
+_LinkActive_Type = LinkState
 _LinkActive_Object = MibTableColumn
 linkActive = _LinkActive_Object(
     (1, 3, 6, 1, 3, 2026, 1, 3, 1, 3),
     _LinkActive_Type()
 )
-linkActive.setMaxAccess("read-write")
+linkActive.setMaxAccess("read-create")
 if mibBuilder.loadTexts:
     linkActive.setStatus("current")
+_LinkRowStatus_Type = RowStatus
+_LinkRowStatus_Object = MibTableColumn
+linkRowStatus = _LinkRowStatus_Object(
+    (1, 3, 6, 1, 3, 2026, 1, 3, 1, 4),
+    _LinkRowStatus_Type()
+)
+linkRowStatus.setMaxAccess("read-create")
+if mibBuilder.loadTexts:
+    linkRowStatus.setStatus("current")
 
 # Managed Objects groups
 
@@ -471,7 +495,11 @@ if mibBuilder.loadTexts:
 
 mibBuilder.exportSymbols(
     "TRAFFIC-MGMT-MIB",
-    **{"trafficMgmtMIB": trafficMgmtMIB,
+    **{"SimOperStatus": SimOperStatus,
+       "RoadType": RoadType,
+       "TrafficColor": TrafficColor,
+       "LinkState": LinkState,
+       "trafficMgmtMIB": trafficMgmtMIB,
        "trafficObjects": trafficObjects,
        "trafficGeneral": trafficGeneral,
        "simStatus": simStatus,
@@ -491,9 +519,11 @@ mibBuilder.exportSymbols(
        "roadTimeRemaining": roadTimeRemaining,
        "roadTotalCarsPassed": roadTotalCarsPassed,
        "roadAverageWaitTime": roadAverageWaitTime,
+       "roadRowStatus": roadRowStatus,
        "roadLinkTable": roadLinkTable,
        "roadLinkEntry": roadLinkEntry,
        "linkDestIndex": linkDestIndex,
        "linkFlowRate": linkFlowRate,
-       "linkActive": linkActive}
+       "linkActive": linkActive,
+       "linkRowStatus": linkRowStatus}
 )
