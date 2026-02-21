@@ -1,4 +1,3 @@
-
 # Projeto GSR - Sistema de Gestão de Tráfego Rodoviário (Fase A)
 Este projeto implementa um protótipo de gestão de tráfego rodoviário baseado na arquitetura INMF utilizando o protocolo SNMPv2c. O objetivo principal é gerir o fluxo de veículos num cruzamento urbano, minimizando os tempos globais de espera.
 
@@ -96,3 +95,8 @@ Ao alterar o RGT (ex: injetando muitos carros na Via 1), vai-se observar o segui
 3. **Escoamento**: Os carros vão começar a subtrair da entrada Norte e a aparecer nas vias de Saída (Sumidouros, que têm o ID 5, 6, 7 e 8).  
 
 4. **Segurança**: O Eixo transversal (Este-Oeste) fica bloqueado a Vermelho durante este processo, garantindo que não há colisões e simulando o comportamento real de um cruzamento. 
+
+## Executar testes
+```bash
+python3 Tests.py
+```

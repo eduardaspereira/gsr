@@ -60,6 +60,10 @@ class TrafficSystem:
                 if oid_key_rgt in self.mib_instances:
                     via['rgt'] = int(self.mib_instances[oid_key_rgt].getSyntax())
                 
+                oid_key_total = f"1.3.6.1.4.1.9999.1.1.2.1.9.{v_id}"
+                if oid_key_total in self.mib_instances:
+                    self.mib_instances[oid_key_total].setSyntax(rfc1902.Counter32(int(via.get('total_passados', 0))))
+                
             cycles += 1
             time.sleep(step)
 
@@ -103,7 +107,7 @@ class TrafficSystem:
                     oid_link = (1, 3, 6, 1, 4, 1, 9999, 1, 1, 3, 1, 2, v_id, d_id)
                     inst_link = MibScalarInstance(oid_link, (0,), rfc1902.Gauge32(dest['ritmo_saida']))
                     mib_builder.export_symbols('TRAFFIC-MIB', **{f'link_{v_id}_{d_id}': MibScalar(oid_link, rfc1902.Gauge32()).setMaxAccess('read-write'), f'link_inst_{v_id}_{d_id}': inst_link})
-                    
+
             # roadRTG (Read-Write)
             oid_rgt = (1, 3, 6, 1, 4, 1, 9999, 1, 1, 2, 1, 4, v_id)
             inst_rgt = MibScalarInstance(oid_rgt, (0,), rfc1902.Gauge32(int(via.get('rgt', 0))))
@@ -128,6 +132,12 @@ class TrafficSystem:
             inst_tempo = MibScalarInstance(oid_tempo, (0,), rfc1902.Integer32(tempo_inicial))
             mib_builder.export_symbols('TRAFFIC-MIB', **{f'tempo_{v_id}': MibScalar(oid_tempo, rfc1902.Integer32()).setMaxAccess('read-only'), f'tempo_inst_{v_id}': inst_tempo})
             self.mib_instances[f"1.3.6.1.4.1.9999.1.1.2.1.8.{v_id}"] = inst_tempo
+
+            # roadTotalCarsPassed (Read-Only)
+            oid_total = (1, 3, 6, 1, 4, 1, 9999, 1, 1, 2, 1, 9, v_id)
+            inst_total = MibScalarInstance(oid_total, (0,), rfc1902.Counter32(int(via.get('total_passados', 0))))
+            mib_builder.export_symbols('TRAFFIC-MIB', **{f'total_{v_id}': MibScalar(oid_total, rfc1902.Counter32()).setMaxAccess('read-only'), f'total_inst_{v_id}': inst_total})
+            self.mib_instances[f"1.3.6.1.4.1.9999.1.1.2.1.9.{v_id}"] = inst_total
             
         print("Sistema Central (SC) iniciado na porta 1161.")
         while True:

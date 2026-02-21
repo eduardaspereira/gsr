@@ -3,6 +3,9 @@ def simulate_step(vias, get_via_func, step):
     for via in vias:
         novos = (via.get('rgt', 0) * step) / 60.0
         via['veiculos_atuais'] = min(via.get('capacidade', 100), via.get('veiculos_atuais', 0) + novos)
+        # Inicializa o contador de veículos passados caso não exista
+        if 'total_passados' not in via:
+            via['total_passados'] = 0
         
     # 2. Atravessamento dos semáforos (Verde = 2, Amarelo = 3 na MIB)
     for via in vias:
@@ -20,6 +23,8 @@ def simulate_step(vias, get_via_func, step):
             if via_dest and (via_dest['veiculos_atuais'] + quantidade_a_passar <= via_dest.get('capacidade', 100)):
                 via['veiculos_atuais'] -= quantidade_a_passar
                 via_dest['veiculos_atuais'] += quantidade_a_passar
+                via['total_passados'] += quantidade_a_passar
             elif not via_dest: 
                 # Sem destino definido = Escoamento para fora da rede
                 via['veiculos_atuais'] -= quantidade_a_passar
+                via['total_passados'] += quantidade_a_passar 
