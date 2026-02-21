@@ -1,94 +1,136 @@
-# Autores: [Os teus números/nomes]
-# Descrição: Módulo de decisão inteligente com exclusão mútua (Fases de Tráfego)
-#            e Heurística de Maximização de Escoamento.
+# ======================================================================================================
+# Autores:
+# Unidade Curricular: Gestão e Segurança de Redes (2025/2026)
+# Ficheiro: sistema_decisao.py
+# Descrição:Implementa a lógica inteligente de controlo de semáforos integrada no SC. 
+#           Utiliza uma heurística de pressão baseada em filas, priorizando eixos com maior acumulação de veículos. 
+#           Implementa a funcionalidade avançada de "Onda Verde", que antecipa a chegada de pelotões de veículos 
+#           de cruzamentos adjacentes para minimizar o tempo global de espera. Inclui mecanismos de segurança para prevenir 
+#           deadlocks em vias lotadas
+# ======================================================================================================
+
+def obter_estado_fase(grupo):
+    cores = [v['semaforo']['cor'] for v in grupo if 'semaforo' in v]
+    if 2 in cores: return 2 # Verde
+    if 3 in cores: return 3 # Amarelo
+    return 1 # Vermelho
 
 def calcular_decisao(vias_data, tempo_amarelo_fixo, step):
-    # 1. Definir os grupos de conflito (Fases) com base nos IDs do config.json
-    vias_ns = [v for v in vias_data if v['id'] in [1, 2]] # Eixo Norte-Sul
-    vias_eo = [v for v in vias_data if v['id'] in [3, 4]] # Eixo Este-Oeste
+    # 1. Agrupar as vias pelos seus respetivos cruzamentos
+    cruzamentos = {}
+    for via in vias_data:
+        c_id = via.get('cruzamento')
+        if c_id:
+            if c_id not in cruzamentos:
+                cruzamentos[c_id] = []
+            cruzamentos[c_id].append(via)
 
-    # Função auxiliar para saber o estado atual de um eixo
-    def obter_estado_fase(grupo):
-        cores = [v['semaforo']['cor'] for v in grupo if 'semaforo' in v]
-        if 2 in cores: return 2 # Verde
-        if 3 in cores: return 3 # Amarelo
-        return 1 # Vermelho
-
-    estado_ns = obter_estado_fase(vias_ns)
-    estado_eo = obter_estado_fase(vias_eo)
-
-    # 2. Atualizar contadores de tempo
+    # 2. Atualizar contadores de tempo globais
     for via in vias_data:
         if 'semaforo' in via:
             via['semaforo']['tempo_falta'] -= step
 
-    # 3. Lógica de Máquina de Estados e Transições
-    
-    # REGRA 1: Segurança Máxima (Lidar com o Amarelo)
-    # Se uma fase está a passar para vermelho, bloqueia qualquer outra ação.
-    if estado_ns == 3:
-        for via in vias_ns:
-            if via['semaforo']['cor'] == 3 and via['semaforo']['tempo_falta'] <= 0:
-                via['semaforo']['cor'] = 1
-                print(f"[SD] Eixo Norte-Sul (Via {via['id']}) passou a VERMELHO.")
-        return 
+    # 3. Executar a máquina de estados para cada cruzamento independentemente
+    for c_id, vias_int in cruzamentos.items():
+        vias_ns = [v for v in vias_int if v.get('eixo') == 'NS']
+        vias_eo = [v for v in vias_int if v.get('eixo') == 'EO']
 
-    if estado_eo == 3:
-        for via in vias_eo:
-            if via['semaforo']['cor'] == 3 and via['semaforo']['tempo_falta'] <= 0:
-                via['semaforo']['cor'] = 1
-                print(f"[SD] Eixo Este-Oeste (Via {via['id']}) passou a VERMELHO.")
-        return 
+        estado_ns = obter_estado_fase(vias_ns)
+        estado_eo = obter_estado_fase(vias_eo)
 
-    # REGRA 2: Fim do Tempo de Verde
-    # Avalia se deve estender o verde ou fechar a fase atual.
-    if estado_ns == 2:
-        ocupacao_concorrente = sum(v.get('veiculos_atuais', 0) for v in vias_eo)
-        for via in vias_ns:
-            if via['semaforo']['cor'] == 2 and via['semaforo']['tempo_falta'] <= 0:
-                # Fecha o sinal se houver carros no outro eixo ou se esta via esvaziou
-                if ocupacao_concorrente > 0 or via.get('veiculos_atuais', 0) == 0:
-                    via['semaforo']['cor'] = 3
-                    via['semaforo']['tempo_falta'] = tempo_amarelo_fixo
-                    print(f"[SD] Eixo Norte-Sul a fechar (AMARELO).")
-                else:
-                    via['semaforo']['tempo_falta'] = 10 # Estende o verde (não há concorrência)
-        return
+        # REGRA 1: Segurança Máxima (Lidar com o Amarelo)
+        if estado_ns == 3:
+            for via in vias_ns:
+                if via['semaforo']['cor'] == 3 and via['semaforo']['tempo_falta'] <= 0:
+                    via['semaforo']['cor'] = 1
+                    print(f"[SD] Cruzamento {c_id}: Eixo NS passou a VERMELHO.")
+            continue 
 
-    if estado_eo == 2:
-        ocupacao_concorrente = sum(v.get('veiculos_atuais', 0) for v in vias_ns)
-        for via in vias_eo:
-            if via['semaforo']['cor'] == 2 and via['semaforo']['tempo_falta'] <= 0:
-                if ocupacao_concorrente > 0 or via.get('veiculos_atuais', 0) == 0:
-                    via['semaforo']['cor'] = 3
-                    via['semaforo']['tempo_falta'] = tempo_amarelo_fixo
-                    print(f"[SD] Eixo Este-Oeste a fechar (AMARELO).")
-                else:
-                    via['semaforo']['tempo_falta'] = 10
-        return
+        if estado_eo == 3:
+            for via in vias_eo:
+                if via['semaforo']['cor'] == 3 and via['semaforo']['tempo_falta'] <= 0:
+                    via['semaforo']['cor'] = 1
+                    print(f"[SD] Cruzamento {c_id}: Eixo EO passou a VERMELHO.")
+            continue 
 
-    # REGRA 3: Exclusão Mútua Cumprida (Todos os sinais estão Vermelhos)
-    # Heurística: Qual eixo deve abrir agora para minimizar tempos de espera globais?
-    if estado_ns == 1 and estado_eo == 1:
-        ocupacao_ns = sum(v.get('veiculos_atuais', 0) for v in vias_ns)
-        ocupacao_eo = sum(v.get('veiculos_atuais', 0) for v in vias_eo)
+        # REGRA 2: Fim do Tempo de Verde (Estende ou Fecha)
+        if estado_ns == 2:
+            ocupacao_concorrente = sum(v.get('veiculos_atuais', 0) for v in vias_eo)
+            for via in vias_ns:
+                if via['semaforo']['cor'] == 2 and via['semaforo']['tempo_falta'] <= 0:
+                    if ocupacao_concorrente > 0 or via.get('veiculos_atuais', 0) == 0:
+                        via['semaforo']['cor'] = 3
+                        via['semaforo']['tempo_falta'] = tempo_amarelo_fixo
+                    else:
+                        via['semaforo']['tempo_falta'] = 10 # Estende
+            continue
 
-        if ocupacao_ns == 0 and ocupacao_eo == 0:
-            return # Sem trânsito na rede, mantém tudo vermelho.
+        if estado_eo == 2:
+            ocupacao_concorrente = sum(v.get('veiculos_atuais', 0) for v in vias_ns)
+            for via in vias_eo:
+                if via['semaforo']['cor'] == 2 and via['semaforo']['tempo_falta'] <= 0:
+                    if ocupacao_concorrente > 0 or via.get('veiculos_atuais', 0) == 0:
+                        via['semaforo']['cor'] = 3
+                        via['semaforo']['tempo_falta'] = tempo_amarelo_fixo
+                    else:
+                        via['semaforo']['tempo_falta'] = 10
+            continue
 
-        # Decide abrir a fase com maior número total de veículos
-        fase_a_abrir = vias_ns if ocupacao_ns >= ocupacao_eo else vias_eo
-        nome_fase = "Norte-Sul" if ocupacao_ns >= ocupacao_eo else "Este-Oeste"
+        # REGRA 3: Exclusão Mútua Cumprida (Heurística de ONDA VERDE)
+        if estado_ns == 1 and estado_eo == 1:
+            pressao_ns = sum(v.get('veiculos_atuais', 0) for v in vias_ns)
+            pressao_eo = sum(v.get('veiculos_atuais', 0) for v in vias_eo)
 
-        for via in fase_a_abrir:
-            # Proteção extra: Evitar Deadlock olhando para as vias de destino
-            pode_abrir = True
-            for dest in via['semaforo'].get('destinos', []):
-                via_dest = next((v for v in vias_data if v['id'] == dest['via_id']), None)
-                if via_dest and (via_dest.get('veiculos_atuais', 0) / via_dest.get('capacidade', 1)) > 0.9:
-                    pode_abrir = False # Destino bloqueado, não abre
+            # Onda Verde (Pressão Virtual / Antecipação)
+            for via_ns in vias_ns:
+                for via_origem in vias_data:
+                    if 'semaforo' in via_origem and via_origem['semaforo']['cor'] == 2:
+                        for dest in via_origem['semaforo'].get('destinos', []):
+                            if dest['via_id'] == via_ns['id']:
+                                pressao_ns += via_origem.get('veiculos_atuais', 0) * 1.5
             
-            if pode_abrir and via.get('veiculos_atuais', 0) > 0:
-                via['semaforo']['cor'] = 2
-                via['semaforo']['tempo_falta'] = 20 # Tempo inicial de verde
-                print(f"[SD] Eixo {nome_fase} (Via {via['id']}) a VERDE (Heurística).")
+            for via_eo in vias_eo:
+                for via_origem in vias_data:
+                    if 'semaforo' in via_origem and via_origem['semaforo']['cor'] == 2:
+                        for dest in via_origem['semaforo'].get('destinos', []):
+                            if dest['via_id'] == via_eo['id']:
+                                pressao_eo += via_origem.get('veiculos_atuais', 0) * 1.5
+
+            if pressao_ns == 0 and pressao_eo == 0:
+                continue # Sem trânsito na rede, mantém vermelho
+
+            # --- CORREÇÃO DO BUG: Mecanismo de Alternativa (Fallback) ---
+            # Ordenamos os eixos pela sua prioridade (maior pressão primeiro)
+            fases_ordem = [
+                (vias_ns, pressao_ns, "NS"), 
+                (vias_eo, pressao_eo, "EO")
+            ]
+            fases_ordem.sort(key=lambda x: x[1], reverse=True)
+
+            # Tenta abrir o eixo prioritário. Se não conseguir (devido a deadlock), tenta o secundário.
+            for fase, pressao, nome_fase in fases_ordem:
+                if pressao == 0:
+                    continue
+                
+                fase_abriu_com_sucesso = False
+                
+                for via in fase:
+                    pode_abrir = True
+                    # Proteção Extra: Prevenção de Deadlock
+                    for dest in via['semaforo'].get('destinos', []):
+                        via_dest = next((v for v in vias_data if v['id'] == dest['via_id']), None)
+                        if via_dest and (via_dest.get('veiculos_atuais', 0) / via_dest.get('capacidade', 1)) > 0.9:
+                            pode_abrir = False 
+                    
+                    tem_pressao_suficiente = via.get('veiculos_atuais', 0) > 0 or (pressao > sum(v.get('veiculos_atuais', 0) for v in fase))
+                    
+                    if pode_abrir and tem_pressao_suficiente:
+                        via['semaforo']['cor'] = 2
+                        via['semaforo']['tempo_falta'] = 20
+                        fase_abriu_com_sucesso = True
+                        print(f"[SD] Cruzamento {c_id}: Eixo {nome_fase} (Via {via['id']}) a VERDE. Pressão: {pressao:.1f}")
+                
+                # Exclusão Mútua: Se conseguimos abrir o eixo prioritário, saímos do loop
+                # (Não tentamos abrir o eixo secundário em simultâneo)
+                if fase_abriu_com_sucesso:
+                    break

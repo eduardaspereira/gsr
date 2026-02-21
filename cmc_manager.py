@@ -1,5 +1,12 @@
-# Autores: [Os teus números/nomes]
-# Descrição: CMC - Gestor SNMPv2c com descoberta dinâmica (SNMP WALK) e monitorização.
+# ======================================================================================================
+# Autores:
+# Unidade Curricular: Gestão e Segurança de Redes (2025/2026)
+# Ficheiro: cmc_manager.py
+# Descrição:Implementa a Consola de Monitorização e Controlo principal atuando como um Gestor SNMPv2c. 
+#           Utiliza a primitiva GETNEXT para realizar um SNMP Walk dinâmico e descobrir os IDs das vias ativas no agente. 
+#           Apresenta os dados em formato de tabela e inclui um prompt interativo para modificar os Ritmos Geradores de 
+#           Tráfego (RGT) via pedidos SET.
+# ======================================================================================================
 
 import asyncio
 import time

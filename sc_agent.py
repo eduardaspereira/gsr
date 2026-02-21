@@ -1,5 +1,12 @@
-# Autores: [Os teus números/nomes]
-# Descrição: Sistema Central. Executa o Agente SNMPv2c, o SSFR e o SD.
+# ======================================================================================================
+# Autores:
+# Unidade Curricular: Gestão e Segurança de Redes (2025/2026)
+# Ficheiro: sc_agent.py
+# Descrição: Atua como o Agente SNMPv2c do Sistema Central (SC). 
+#           Carrega a configuração da rede a partir do config.json e instrumenta dinamicamente os objetos da MIB em memória. 
+#           Gere a execução multithreaded que integra o simulador (SSFR) e o sistema de decisão (SD), 
+#           garantindo a atualização dos valores das instâncias em quase tempo real.
+# ===============================================================================
 
 import threading
 import time
@@ -40,10 +47,6 @@ class TrafficSystem:
             for via in self.data['vias']:
                 v_id = via['id']
                 
-                # 3. Atualização direta em memória da MIB
-            for via in self.data['vias']:
-                v_id = via['id']
-                
                 oid_key_veiculos = f"1.3.6.1.4.1.9999.1.1.2.1.6.{v_id}"
                 if oid_key_veiculos in self.mib_instances:
                     self.mib_instances[oid_key_veiculos].setSyntax(rfc1902.Gauge32(int(via['veiculos_atuais'])))
@@ -63,6 +66,10 @@ class TrafficSystem:
                 oid_key_total = f"1.3.6.1.4.1.9999.1.1.2.1.9.{v_id}"
                 if oid_key_total in self.mib_instances:
                     self.mib_instances[oid_key_total].setSyntax(rfc1902.Counter32(int(via.get('total_passados', 0))))
+
+                oid_key_avg_wait = f"1.3.6.1.4.1.9999.1.1.2.1.10.{v_id}"
+                if oid_key_avg_wait in self.mib_instances:
+                    self.mib_instances[oid_key_avg_wait].setSyntax(rfc1902.Gauge32(int(via.get('avg_wait_time', 0))))
                 
             cycles += 1
             time.sleep(step)
@@ -138,6 +145,12 @@ class TrafficSystem:
             inst_total = MibScalarInstance(oid_total, (0,), rfc1902.Counter32(int(via.get('total_passados', 0))))
             mib_builder.export_symbols('TRAFFIC-MIB', **{f'total_{v_id}': MibScalar(oid_total, rfc1902.Counter32()).setMaxAccess('read-only'), f'total_inst_{v_id}': inst_total})
             self.mib_instances[f"1.3.6.1.4.1.9999.1.1.2.1.9.{v_id}"] = inst_total
+
+            # roadAverageWaitTime (Read-Only)
+            oid_wait = (1, 3, 6, 1, 4, 1, 9999, 1, 1, 2, 1, 10, v_id)
+            inst_wait = MibScalarInstance(oid_wait, (0,), rfc1902.Gauge32(int(via.get('avg_wait_time', 0))))
+            mib_builder.export_symbols('TRAFFIC-MIB', **{f'wait_{v_id}': MibScalar(oid_wait, rfc1902.Gauge32()).setMaxAccess('read-only'), f'wait_inst_{v_id}': inst_wait})
+            self.mib_instances[f"1.3.6.1.4.1.9999.1.1.2.1.10.{v_id}"] = inst_wait
             
         print("Sistema Central (SC) iniciado na porta 1161.")
         while True:

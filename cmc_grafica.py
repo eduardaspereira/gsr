@@ -1,5 +1,13 @@
-# Autores: [Os teus números/nomes]
-# Descrição: CMC Visual - Gestor SNMPv2c para representação gráfica do cruzamento.
+# ======================================================================================================
+# Autores:
+# Unidade Curricular: Gestão e Segurança de Redes (2025/2026)
+# Ficheiro: cmc_grafica.py
+# 
+# Descrição: Gestor SNMP auxiliar focado na visualização visual da rede urbana.
+#            Realiza pedidos GET periódicos para monitorizar o número de veículos e o estado dos semáforos. 
+#            Mapeia a topologia de "Onda Verde" definida no config.json, utilizando códigos ANSI para desenhar um 
+#            mapa ASCII dinâmico que ilustra o fluxo de tráfego entre cruzamentos em tempo real.
+# ========================================================================================================
 
 import asyncio
 import time
@@ -20,16 +28,23 @@ def get_color_ansi(color_code):
     return "  "
 
 async def fetch_all_vias(snmp_engine):
-    """Vai buscar os dados de todas as 8 vias do cruzamento via SNMP."""
+    """Vai buscar os dados das vias específicas do nosso config.json atual."""
     dados = {}
     transport = await UdpTransportTarget.create(('127.0.0.1', 1161))
     
-    for via_id in range(1, 9):
-        dados[via_id] = {'c': 0, 's': 1} # c = carros, s = cor do semáforo
-        oid_carros = f'1.3.6.1.4.1.9999.1.1.2.1.6.{via_id}.0'
-        oid_cor = f'1.3.6.1.4.1.9999.1.1.2.1.7.{via_id}.0'
+    # Lista de IDs conforme o config.json (vias e sumidouros)
+    vias_ids = [1, 2, 3, 4, 97, 98, 99]
+    
+    for via_id in vias_ids:
+        # Inicialização (Sumidouros 97-99 não têm semáforo, logo cor Verde 2 por defeito)
+        dados[via_id] = {'c': 0, 's': 2} 
         
-        for key, oid in [('c', oid_carros), ('s', oid_cor)]:
+        oids = {
+            'c': f'1.3.6.1.4.1.9999.1.1.2.1.6.{via_id}.0', # roadVehicleCount
+            's': f'1.3.6.1.4.1.9999.1.1.2.1.7.{via_id}.0'  # roadLightColor
+        }
+        
+        for key, oid in oids.items():
             try:
                 errorIndication, errorStatus, errorIndex, varBinds = await get_cmd(
                     snmp_engine,
@@ -48,40 +63,41 @@ async def draw_map(snmp_engine):
     while True:
         d = await fetch_all_vias(snmp_engine)
         
-        # Mapa ASCII formatado com as variáveis de cada via
+        # Mapeamento Visual da Topologia:
+        # Via 1 -> Via 2 -> Sumidouro 99 (Eixo Norte-Sul)
+        # Via 3 -> Sumidouro 98 (Eixo Este-Oeste Cruzamento 1)
+        # Via 4 -> Sumidouro 97 (Eixo Este-Oeste Cruzamento 2)
+        
         mapa = f"""
 ================= MAPA DO CRUZAMENTO [{time.strftime('%H:%M:%S')}] =================
 
-                     NORTE
-             Saída 5       Entrada 1
-             Carros: {d[5]['c']:<2}    Carros: {d[1]['c']:<2}
-               [{get_color_ansi(d[5]['s'])}]           [{get_color_ansi(d[1]['s'])}]
-                 ^ ^           v v
-                 | |           | |
-OESTE  __________|_|___________|_|__________   ESTE
-         < < [{get_color_ansi(d[8]['s'])}]                 Carros: {d[3]['c']:<2} Entrada 3
-Saída 8  Carros: {d[8]['c']:<2}                   [{get_color_ansi(d[3]['s'])}] < < <
-       -------------------------------------
-Entrada 4        [{get_color_ansi(d[4]['s'])}]                 Carros: {d[7]['c']:<2} Saída 7
-> > >    Carros: {d[4]['c']:<2}                   [{get_color_ansi(d[7]['s'])}] > > >
-       __________   ___________   __________
-                 | |           | |
-                 | |           | |
-                 v v           ^ ^
-               [{get_color_ansi(d[6]['s'])}]           [{get_color_ansi(d[2]['s'])}]
-             Carros: {d[6]['c']:<2}    Carros: {d[2]['c']:<2}
-             Saída 6       Entrada 2
-                      SUL
+           CRUZAMENTO 1 (Norte)              CRUZAMENTO 2 (Sul)
+           --------------------              ------------------
+                 ENTRADA 1                         VIA 2
+                Carros: {d[1]['c']:<2}                        Carros: {d[2]['c']:<2}
+                  [{get_color_ansi(d[1]['s'])}]                              [{get_color_ansi(d[2]['s'])}]
+                    v v                               v v
+                    | |                               | |
+    Rua 3   ________|_|________ Saída 98      Rua 4   ________|_|________ Saída 99
+    ----->  [{get_color_ansi(d[3]['s'])}]  {d[3]['c']:<2}      ----->      ----->  [{get_color_ansi(d[4]['s'])}]  {d[4]['c']:<2}      ----->
+    In: {d[3]['c']:<2}  ________   ________ Out:{d[98]['c']:<2}      In: {d[4]['c']:<2}  ________   ________ Out:{d[99]['c']:<2}
+                    | |                               | |
+                    | |                               | |
+                    v v                               v v
+                  Saída 2                          Saída 97
+                Carros: {d[2]['c']:<2}                        Carros: {d[97]['c']:<2}
 
 ====================================================================
+Legenda: Entrada 1 -> Via 2 -> Sumidouro 97 (Avenida Principal / Onda Verde)
+Para simular Onda Verde, aumenta o RGT da Via 1 (ex: set 1 60).
         """
         clear_console()
         print(mapa)
-        await asyncio.sleep(2) # Atualiza a cada 2 segundos para ser fluido
+        await asyncio.sleep(2)
 
 async def main():
     snmp_engine = SnmpEngine()
-    print("A iniciar interface gráfica do cruzamento...")
+    print("A iniciar interface gráfica do cruzamento (Onda Verde)...")
     await draw_map(snmp_engine)
 
 if __name__ == "__main__":
