@@ -31,7 +31,6 @@ class TrafficSystem:
         self.vias_map = {via['id']: via for via in self.data['vias']}
         self.snmp_engine = engine.SnmpEngine()
         self.mib_instances = {}
-        self.tempo_total_simulado = 0 # Inicialização necessária para eventos 
 
     def get_via(self, via_id):
         return self.vias_map.get(via_id)
@@ -47,32 +46,21 @@ class TrafficSystem:
             # 2. Decisão inteligente (SD) integrada 
             sistema_decisao.calcular_decisao(self.data['vias'], amarelo_fixo, step)
             
-            # 3. Gestão de Eventos (Ex: Hora de Ponta)
-            self.tempo_total_simulado += step
-            for evento in self.data.get('eventos_rgt', []):
-                if self.tempo_total_simulado == evento['tempo_simulacao']:
-                    via = self.get_via(evento['via_id'])
-                    if via:
-                        via['rgt'] = evento['novo_rgt']
-                        print(f"[EVENTO] {evento['descricao']} na Via {via['id']}")
-
-            # 4. Atualização da MIB (Sincronização memória -> SNMP)
+            # 3. Atualização da MIB (Sincronização memória -> SNMP)
             for via in self.data['vias']:
                 v_id = via['id']
                 # Atualiza contagem, cor e temporizador na MIB 
                 oids_to_update = {
                     f"1.3.6.1.4.1.9999.1.1.2.1.6.{v_id}": rfc1902.Gauge32(int(via['veiculos_atuais'])),
                     f"1.3.6.1.4.1.9999.1.1.2.1.7.{v_id}": rfc1902.Integer32(via['semaforo']['cor']) if 'semaforo' in via else None,
-                    f"1.3.6.1.4.1.9999.1.1.2.1.8.{v_id}": rfc1902.Integer32(max(0, via['semaforo']['tempo_falta'])) if 'semaforo' in via else None,
-                    f"1.3.6.1.4.1.9999.1.1.2.1.9.{v_id}": rfc1902.Counter32(int(via.get('total_passados', 0))),
-                    f"1.3.6.1.4.1.9999.1.1.2.1.10.{v_id}": rfc1902.Gauge32(int(via.get('avg_wait_time', 0)))
+                    f"1.3.6.1.4.1.9999.1.1.2.1.8.{v_id}": rfc1902.Integer32(max(0, via['semaforo']['tempo_falta'])) if 'semaforo' in via else None
                 }
                 
                 for oid, val in oids_to_update.items():
                     if val is not None and oid in self.mib_instances:
                         self.mib_instances[oid].setSyntax(val)
 
-                # Sincronização Inversa: Lê RGT da MIB para permitir alteração externa 
+                # Sincronizacao inversa: le RGT da MIB para permitir alteracao externa 
                 oid_rgt = f"1.3.6.1.4.1.9999.1.1.2.1.4.{v_id}"
                 if oid_rgt in self.mib_instances:
                     via['rgt'] = int(self.mib_instances[oid_rgt].getSyntax())
@@ -95,15 +83,14 @@ class TrafficSystem:
         for via in self.data['vias']:
             v_id = via['id']
             # Criação de objetos da tabela de vias (roadTable) 
+            cor_inicial = 1 if 'semaforo' in via else 2
             objs = [
                 (2, rfc1902.OctetString(via['nome']), 'read-only'),   # roadName
                 (4, rfc1902.Gauge32(int(via.get('rgt', 0))), 'read-write'), # roadRTG
                 (5, rfc1902.Gauge32(via.get('capacidade', 100)), 'read-only'), # roadMaxCap
                 (6, rfc1902.Gauge32(0), 'read-only'), # roadVehicleCount
-                (7, rfc1902.Integer32(1), 'read-only'), # roadLightColor
-                (8, rfc1902.Integer32(0), 'read-only'), # roadTimeRemaining
-                (9, rfc1902.Counter32(0), 'read-only'), # roadTotalCars
-                (10, rfc1902.Gauge32(0), 'read-only')   # roadAvgWait
+                (7, rfc1902.Integer32(cor_inicial), 'read-only'), # roadLightColor
+                (8, rfc1902.Integer32(0), 'read-only') # roadTimeRemaining
             ]
             for sub_id, val, access in objs:
                 oid = (1, 3, 6, 1, 4, 1, 9999, 1, 1, 2, 1, sub_id, v_id)

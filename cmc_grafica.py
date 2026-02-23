@@ -5,7 +5,7 @@
 # 
 # Descrição: Gestor SNMP auxiliar focado na visualização visual da rede urbana.
 #            Realiza pedidos GET periódicos para monitorizar o número de veículos e o estado dos semáforos. 
-#            Mapeia a topologia de "Onda Verde" definida no config.json, utilizando códigos ANSI para desenhar um 
+#            Mapeia a topologia definida no config.json, utilizando códigos ANSI para desenhar um 
 #            mapa ASCII dinâmico que ilustra o fluxo de tráfego entre cruzamentos em tempo real.
 # ========================================================================================================
 
@@ -88,8 +88,8 @@ async def draw_map(snmp_engine):
                 Carros: {d[2]['c']:<2}                        Carros: {d[97]['c']:<2}
 
 ====================================================================
-Legenda: Entrada 1 -> Via 2 -> Sumidouro 97 (Avenida Principal / Onda Verde)
-Para simular Onda Verde, aumenta o RGT da Via 1 (ex: set 1 60).
+Legenda: Entrada 1 -> Via 2 -> Sumidouro 97 (Avenida Principal)
+Para aumentar o fluxo a Norte, aumenta o RGT da Via 1 (ex: set 1 60).
         """
         clear_console()
         print(mapa)
@@ -97,7 +97,7 @@ Para simular Onda Verde, aumenta o RGT da Via 1 (ex: set 1 60).
 
 async def main():
     snmp_engine = SnmpEngine()
-    print("A iniciar interface gráfica do cruzamento (Onda Verde)...")
+    print("A iniciar interface grafica do cruzamento...")
     await draw_map(snmp_engine)
 
 if __name__ == "__main__":

@@ -64,9 +64,5 @@
     },
     { "id": 11, "nome": "Via Destino A (66%)", "veiculos_atuais": 0, "capacidade": 100 },
     { "id": 12, "nome": "Via Destino B (33%)", "veiculos_atuais": 0, "capacidade": 100 }
-  ],
-    "eventos_rgt": [
-    {"tempo_simulacao": 30, "via_id": 1, "novo_rgt": 80, "descricao": "Início Hora de Ponta Norte"},
-    {"tempo_simulacao": 120, "via_id": 1, "novo_rgt": 20, "descricao": "Fim Hora de Ponta Norte"}
   ]
 }
