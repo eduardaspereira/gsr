@@ -46,4 +46,4 @@
 
 - **[Opcional]** A CMC pode permitir ao administrador alterar, em tempo de simulação, não apenas os valores dos RGT, mas também os ritmos de escoamento para fora da rede.
 
-- **[Opcional]** A CMC pode incluir uma interface visual intuitiva (ex: representação gráfica em ASCII) que ilustre a topologia da rede, a cor dos semáforos e o volume de tráfego em tempo real, elevando a qualidade da monitorização.
+- **[Opcional]** A CMC pode incluir uma interface visual intuitiva que ilustre a topologia da rede, a cor dos semáforos e o volume de tráfego em tempo real.
