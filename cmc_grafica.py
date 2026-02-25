@@ -5,7 +5,7 @@
 # 
 # Descrição: Gestor SNMP auxiliar focado na visualização visual da rede urbana.
 #            Realiza pedidos GET periódicos para monitorizar o número de veículos e o estado dos semáforos. 
-#            Mapeia a topologia definida no config.json, utilizando códigos ANSI para desenhar um 
+#            Mapeia a topologia de "Onda Verde" definida no config.json, utilizando códigos ANSI para desenhar um 
 #            mapa ASCII dinâmico que ilustra o fluxo de tráfego entre cruzamentos em tempo real.
 # ========================================================================================================
 
@@ -71,25 +71,25 @@ async def draw_map(snmp_engine):
         mapa = f"""
 ================= MAPA DO CRUZAMENTO [{time.strftime('%H:%M:%S')}] =================
 
-           CRUZAMENTO 1 (Norte)              CRUZAMENTO 2 (Sul)
-           --------------------              ------------------
-                 ENTRADA 1                         VIA 2
-                Carros: {d[1]['c']:<2}                        Carros: {d[2]['c']:<2}
-                  [{get_color_ansi(d[1]['s'])}]                              [{get_color_ansi(d[2]['s'])}]
-                    v v                               v v
-                    | |                               | |
+           CRUZAMENTO 1 (Norte)                           CRUZAMENTO 2 (Sul)
+           --------------------                         ------------------
+                 ENTRADA 1                                   VIA 2
+                Carros: {d[1]['c']:<2}                                  Carros: {d[2]['c']:<2}
+                   [{get_color_ansi(d[1]['s'])}]                                      [{get_color_ansi(d[2]['s'])}]
+                    v v                                       v v
+                    | |                                       | |
     Rua 3   ________|_|________ Saída 98      Rua 4   ________|_|________ Saída 99
     ----->  [{get_color_ansi(d[3]['s'])}]  {d[3]['c']:<2}      ----->      ----->  [{get_color_ansi(d[4]['s'])}]  {d[4]['c']:<2}      ----->
     In: {d[3]['c']:<2}  ________   ________ Out:{d[98]['c']:<2}      In: {d[4]['c']:<2}  ________   ________ Out:{d[99]['c']:<2}
-                    | |                               | |
-                    | |                               | |
-                    v v                               v v
-                  Saída 2                          Saída 97
-                Carros: {d[2]['c']:<2}                        Carros: {d[97]['c']:<2}
+                    | |                                     | |
+                    | |                                     | |
+                    v v                                     v v
+                  Saída 2                                  Saída 97
+                Carros: {d[2]['c']:<2}                                 Carros: {d[97]['c']:<2}
 
 ====================================================================
-Legenda: Entrada 1 -> Via 2 -> Sumidouro 97 (Avenida Principal)
-Para aumentar o fluxo a Norte, aumenta o RGT da Via 1 (ex: set 1 60).
+Legenda: Entrada 1 -> Via 2 -> Sumidouro 97 (Avenida Principal / Onda Verde)
+Para simular Onda Verde, aumenta o RGT da Via 1 (ex: set 1 60).
         """
         clear_console()
         print(mapa)
@@ -97,7 +97,7 @@ Para aumentar o fluxo a Norte, aumenta o RGT da Via 1 (ex: set 1 60).
 
 async def main():
     snmp_engine = SnmpEngine()
-    print("A iniciar interface grafica do cruzamento...")
+    print("A iniciar interface gráfica do cruzamento (Onda Verde)...")
     await draw_map(snmp_engine)
 
 if __name__ == "__main__":
