@@ -71,21 +71,21 @@ async def draw_map(snmp_engine):
         mapa = f"""
 ================= MAPA DO CRUZAMENTO [{time.strftime('%H:%M:%S')}] =================
 
-           CRUZAMENTO 1 (Norte)              CRUZAMENTO 2 (Sul)
-           --------------------              ------------------
-                 ENTRADA 1                         VIA 2
-                Carros: {d[1]['c']:<2}                        Carros: {d[2]['c']:<2}
-                  [{get_color_ansi(d[1]['s'])}]                              [{get_color_ansi(d[2]['s'])}]
-                    v v                               v v
-                    | |                               | |
+           CRUZAMENTO 1 (Norte)                           CRUZAMENTO 2 (Sul)
+           --------------------                         ------------------
+                 ENTRADA 1                                   VIA 2
+                Carros: {d[1]['c']:<2}                                  Carros: {d[2]['c']:<2}
+                   [{get_color_ansi(d[1]['s'])}]                                      [{get_color_ansi(d[2]['s'])}]
+                    v v                                       v v
+                    | |                                       | |
     Rua 3   ________|_|________ Saída 98      Rua 4   ________|_|________ Saída 99
     ----->  [{get_color_ansi(d[3]['s'])}]  {d[3]['c']:<2}      ----->      ----->  [{get_color_ansi(d[4]['s'])}]  {d[4]['c']:<2}      ----->
     In: {d[3]['c']:<2}  ________   ________ Out:{d[98]['c']:<2}      In: {d[4]['c']:<2}  ________   ________ Out:{d[99]['c']:<2}
-                    | |                               | |
-                    | |                               | |
-                    v v                               v v
-                  Saída 2                          Saída 97
-                Carros: {d[2]['c']:<2}                        Carros: {d[97]['c']:<2}
+                    | |                                     | |
+                    | |                                     | |
+                    v v                                     v v
+                  Saída 2                                  Saída 97
+                Carros: {d[2]['c']:<2}                                 Carros: {d[97]['c']:<2}
 
 ====================================================================
 Legenda: Entrada 1 -> Via 2 -> Sumidouro 97 (Avenida Principal / Onda Verde)

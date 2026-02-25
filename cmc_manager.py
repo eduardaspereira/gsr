@@ -11,10 +11,33 @@
 import asyncio
 import time
 import os
+import json
 from pysnmp.hlapi.asyncio import *
 
 def clear_console():
     os.system('cls' if os.name == 'nt' else 'clear')
+
+def calcular_percentagens(config_file='config.json'):
+    """Calcula as percentagens de distribuição dinâmica para cada via de destino."""
+    with open(config_file, 'r') as f:
+        config_data = json.load(f)
+    
+    percentagens = {}
+    
+    # Percorre todas as vias de origem
+    for via in config_data['vias']:
+        if 'semaforo' in via:
+            destinos = via['semaforo'].get('destinos', [])
+            if len(destinos) > 1:  # Se tem múltiplos destinos
+                total_ritmo = sum(d.get('ritmo_saida', 0) for d in destinos)
+                if total_ritmo > 0:
+                    for destino in destinos:
+                        dest_id = destino['via_id']
+                        ritmo = destino.get('ritmo_saida', 0)
+                        percentagem = (ritmo / total_ritmo) * 100
+                        percentagens[dest_id] = f"{percentagem:.1f}%"
+    
+    return percentagens
 
 async def discover_vias(snmp_engine):
     """
@@ -88,19 +111,25 @@ async def monitor_loop(snmp_engine):
     print("A iniciar descoberta dinâmica de vias (SNMP WALK)...")
     vias_ativas = await discover_vias(snmp_engine)
     
+    # Calcula as percentagens dinâmicas uma vez no início
+    percentagens = calcular_percentagens()
+    
     while True:
         output = f"\n--- Tabela de Monitorização [{time.strftime('%H:%M:%S')}] ---\n"
-        # Ajustado o cabeçalho para incluir o tempo
-        output += f"{'Via ID':<10} | {'Veículos':<10} | {'Cor Sinal':<12} | {'Tempo (s)':<10} | {'RGT (Entrada)':<15}\n"
-        output += "-" * 68 + "\n"
+        # Ajustado o cabeçalho para incluir o tempo e observações
+        output += f"{'Via ID':<10} | {'Veículos':<10} | {'Cor Sinal':<12} | {'Tempo (s)':<10} | {'RGT (Entrada)':<15} | {'Obs':<15}\n"
+        output += "-" * 90 + "\n"
         
         for via_id in vias_ativas:
             dados = await fetch_via_data(snmp_engine, via_id)
             cor_str = cores_map.get(dados['cor'], "N/A")
             tipo = "(Saída)" if dados['rgt'] == 0 and dados['cor'] == 2 else ""
             
+            # Obtém a observação (percentagem se for uma via de destino)
+            observacao = percentagens.get(via_id, "")
+            
             # Formatação com a nova coluna
-            output += f"{str(via_id) + ' ' + tipo:<10} | {dados['veiculos']:<10} | {cor_str:<12} | {dados['tempo']:<10} | {dados['rgt']:<15}\n"
+            output += f"{str(via_id) + ' ' + tipo:<10} | {dados['veiculos']:<10} | {cor_str:<12} | {dados['tempo']:<10} | {dados['rgt']:<15} | {observacao:<15}\n"
         
         clear_console()
         print(output)
