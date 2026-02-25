@@ -126,7 +126,7 @@ O projeto inclui uma bateria de 12 testes unitários e de integração que valid
 - Prevenção de deadlocks com destinos lotados.
 - Precisão matemática da injeção de veículos.
 - Lógica de antecipação (Onda Verde).
-- Escoamento em sumidouros
+- Escoamento em sumidouros.
 
 ```bash
 python3 Tests.py
