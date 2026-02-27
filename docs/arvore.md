@@ -1,26 +1,44 @@
 # Modelo de Informação
 
 ```
-iso(1) . org(3) . dod(6) . internet(1) . private(4) . enterprises(1)  
- └── minhouniversity(9999)   
-      └── trafficSystem(1)  
-           ├── trafficGeneral(1)
-           │    ├── simStatus(1)         INTEGER (read-write)
-           │    └── simStepDuration(2)   INTEGER (read-write)
-           │
-           ├── roadTable(2) [INDEX { roadIndex }]  
-           │    └── roadEntry(1)  
-           │         ├── roadIndex(1)         INTEGER (ID da via - not-accessible)  
-           │         ├── roadName(2)          OCTET STRING (read-only)  
-           │         ├── roadRGT(3)           GAUGE32 (read-write)  
-           │         ├── roadVehicleCount(4)  GAUGE32 (read-only)  
-           │         ├── roadLightColor(5)    INTEGER { green(1), yellow(2), red(3) } (read-only)  
-           │         └── roadTimeRemaining(6) INTEGER (read-only)
-           │
-           └── roadLinkTable(3) [INDEX { roadIndex, linkDestIndex }]
-                └── roadLinkEntry(1)
-                     ├── linkDestIndex(1)     INTEGER (ID via destino - not-accessible)
-                     └── linkFlowRate(2)      GAUGE32 (read-write)
+iso(1).org(3).dod(6).internet(1).experimental(3)
+ |
+ +-- trafficMgmtMIB (2026)
+      |
+      +-- trafficObjects (1)
+           |
+           +-- trafficGeneral (1)
+           |    |
+           |    +-- simStatus (1) .............. [RW] SimOperStatus {running(1), stopped(2), reset(3)}
+           |    +-- simStepDuration (2) ........ [RW] Integer32 (1..60) [sec]
+           |    +-- globalVehicleCount (3) ..... [RO] Gauge32
+           |    +-- algoMinGreenTime (4) ....... [RW] Integer32 (5..120) [sec]
+           |    +-- algoYellowTime (5) ......... [RO] Integer32 (1..10) [sec]
+           |
+           +-- roadTable (2)
+           |    |
+           |    +-- roadEntry (1)  [INDEX: roadIndex]
+           |         |
+           |         +-- roadIndex (1) ........... [NA] Integer32 (1..65535)
+           |         +-- roadName (2) ............ [RC] DisplayString
+           |         +-- roadType (3) ............ [RC] RoadType {normal(1), sink(2), source(3)}
+           |         +-- roadRTG (4) ............. [RC] Gauge32
+           |         +-- roadMaxCapacity (5) ..... [RC] Gauge32
+           |         +-- roadVehicleCount (6) .... [RO] Gauge32
+           |         +-- roadLightColor (7) ...... [RO] TrafficColor {red(1), green(2), yellow(3)}
+           |         +-- roadTimeRemaining (8) ... [RO] Integer32 [sec]
+           |         +-- roadTotalCarsPassed (9) . [RO] Counter32
+           |         +-- roadAverageWaitTime (10)  [RO] Gauge32 [sec]
+           |         +-- roadRowStatus (11) ...... [RC] RowStatus
+           |
+           +-- roadLinkTable (3)
+                |
+                +-- roadLinkEntry (1)  [INDEX: roadIndex, linkDestIndex]
+                     |
+                     +-- linkDestIndex (1) ....... [NA] Integer32 (1..65535)
+                     +-- linkFlowRate (2) ........ [RC] Gauge32
+                     +-- linkActive (3) .......... [RC] LinkState {active(1), inactive(2)}
+                     +-- linkRowStatus (4) ....... [RC] RowStatus
 ```
 
 # Interações Funcionais entre os Componentes do Sistema

@@ -208,6 +208,7 @@ roadLinkEntry OBJECT-TYPE
     ::= { roadLinkTable 1 }
 
 RoadLinkEntry ::= SEQUENCE {
+    roadIndex       Integer32,
     linkDestIndex   Integer32,
     linkFlowRate    Gauge32,
     linkActive      LinkState,
