@@ -2,10 +2,10 @@
 # Autores:
 # Unidade Curricular: Gestão e Segurança de Redes (2025/2026)
 # Ficheiro: cmc_manager.py
-# Descrição:Implementa a Consola de Monitorização e Controlo principal atuando como um Gestor SNMPv2c. 
-#           Utiliza a primitiva GETNEXT para realizar um SNMP Walk dinâmico e descobrir os IDs das vias ativas no agente. 
-#           Apresenta os dados em formato de tabela e inclui um prompt interativo para modificar os Ritmos Geradores de 
-#           Tráfego (RGT) via pedidos SET.
+# Descrição: Implementa a Consola de Monitorização e Controlo (CMC) como Gestor SNMPv2c.
+#           Utiliza GETNEXT para SNMP Walk dinâmico e descoberta de vias ativas no agente.
+#           Acede à MIB experimental (1.3.6.1.3.2026) para monitorização e controlo de RGT.
+#           Apresenta dados da roadTable (.1.3.1) e trafficLightTable (.1.4.1) em formato tabular.
 # ======================================================================================================
 
 import asyncio
@@ -41,11 +41,11 @@ def calcular_percentagens(config_file='config.json'):
 
 async def discover_vias(snmp_engine):
     """
-    Realiza um SNMP WALK na coluna roadVehicleCount (1.3.6.1.4.1.9999.1.1.2.1.6)
+    Realiza um SNMP WALK na coluna roadVehicleCount (1.3.6.1.3.2026.1.3.1.6)
     para descobrir dinamicamente todos os IDs das vias ativas no Sistema Central.
     """
     vias_descobertas = []
-    base_oid_str = '1.3.6.1.4.1.9999.1.1.2.1.6'
+    base_oid_str = '1.3.6.1.3.2026.1.3.1.6'
     current_oid = ObjectType(ObjectIdentity(base_oid_str))
     
     transport = await UdpTransportTarget.create(('127.0.0.1', 1161))
@@ -80,12 +80,14 @@ async def discover_vias(snmp_engine):
     return vias_descobertas
 
 async def fetch_via_data(snmp_engine, via_id):
-    dados = {'veiculos': 0, 'cor': 1, 'rgt': 0, 'tempo': 0} # Adicionado 'tempo'
+    dados = {'veiculos': 0, 'cor': 1, 'rgt': 0, 'tempo': 0, 'total': 0, 'avg_wait': 0}
     oids = {
-        'rgt': f'1.3.6.1.4.1.9999.1.1.2.1.4.{via_id}.0',
-        'veiculos': f'1.3.6.1.4.1.9999.1.1.2.1.6.{via_id}.0',
-        'cor': f'1.3.6.1.4.1.9999.1.1.2.1.7.{via_id}.0',
-        'tempo': f'1.3.6.1.4.1.9999.1.1.2.1.8.{via_id}.0' # Novo OID
+        'rgt':      f'1.3.6.1.3.2026.1.3.1.4.{via_id}.0',   # roadRTG
+        'veiculos': f'1.3.6.1.3.2026.1.3.1.6.{via_id}.0',   # roadVehicleCount
+        'total':    f'1.3.6.1.3.2026.1.3.1.7.{via_id}.0',   # roadTotalCarsPassed
+        'avg_wait': f'1.3.6.1.3.2026.1.3.1.8.{via_id}.0',   # roadAverageWaitTime
+        'cor':      f'1.3.6.1.3.2026.1.4.1.3.{via_id}.0',   # tlColor
+        'tempo':    f'1.3.6.1.3.2026.1.4.1.4.{via_id}.0',   # tlTimeRemaining
     }
     
     transport = await UdpTransportTarget.create(('127.0.0.1', 1161))
@@ -116,20 +118,18 @@ async def monitor_loop(snmp_engine):
     
     while True:
         output = f"\n--- Tabela de Monitorização [{time.strftime('%H:%M:%S')}] ---\n"
-        # Ajustado o cabeçalho para incluir o tempo e observações
-        output += f"{'Via ID':<10} | {'Veículos':<10} | {'Cor Sinal':<12} | {'Tempo (s)':<10} | {'RGT (Entrada)':<15} | {'Obs':<15}\n"
-        output += "-" * 90 + "\n"
+        output += f"{'Via ID':<10} | {'Veículos':<10} | {'Cor Sinal':<12} | {'Tempo(s)':<9} | {'RGT':<6} | {'Passados':<10} | {'Espera(s)':<10} | {'Obs':<10}\n"
+        output += "-" * 100 + "\n"
         
         for via_id in vias_ativas:
             dados = await fetch_via_data(snmp_engine, via_id)
             cor_str = cores_map.get(dados['cor'], "N/A")
-            tipo = "(Saída)" if dados['rgt'] == 0 and dados['cor'] == 2 else ""
+            tipo = "(Sink)" if dados['rgt'] == 0 and dados['cor'] == 0 else ""
             
-            # Obtém a observação (percentagem se for uma via de destino)
+            # Observação: percentagem de distribuição se for via destino
             observacao = percentagens.get(via_id, "")
             
-            # Formatação com a nova coluna
-            output += f"{str(via_id) + ' ' + tipo:<10} | {dados['veiculos']:<10} | {cor_str:<12} | {dados['tempo']:<10} | {dados['rgt']:<15} | {observacao:<15}\n"
+            output += f"{str(via_id) + ' ' + tipo:<10} | {dados['veiculos']:<10} | {cor_str:<12} | {dados['tempo']:<9} | {dados['rgt']:<6} | {dados['total']:<10} | {dados['avg_wait']:<10} | {observacao:<10}\n"
         
         clear_console()
         print(output)
@@ -137,7 +137,7 @@ async def monitor_loop(snmp_engine):
         await asyncio.sleep(5)
 
 async def set_rgt(snmp_engine, via_id, new_rgt):
-    oid = f'1.3.6.1.4.1.9999.1.1.2.1.4.{via_id}.0'
+    oid = f'1.3.6.1.3.2026.1.3.1.4.{via_id}.0'
     transport = await UdpTransportTarget.create(('127.0.0.1', 1161))
     errorIndication, errorStatus, errorIndex, varBinds = await set_cmd(
         snmp_engine,

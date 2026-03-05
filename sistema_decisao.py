@@ -15,7 +15,7 @@ def obter_estado_fase(grupo):
     if 3 in cores: return 3 # Amarelo
     return 1 # Vermelho
 
-def calcular_decisao(vias_data, tempo_amarelo_fixo, step):
+def calcular_decisao(vias_data, tempo_amarelo_fixo, step, algo_min_green_time=20):
     # 1. Agrupar as vias pelos seus respetivos cruzamentos
     cruzamentos = {}
     for via in vias_data:
@@ -29,6 +29,9 @@ def calcular_decisao(vias_data, tempo_amarelo_fixo, step):
     for via in vias_data:
         if 'semaforo' in via:
             via['semaforo']['tempo_falta'] -= step
+            # Acumula tempo de vermelho para cálculo de red_duration
+            if via['semaforo']['cor'] == 1:
+                via['semaforo']['_red_accumulated'] = via['semaforo'].get('_red_accumulated', 0) + step
 
     # 3. Executar a máquina de estados para cada cruzamento independentemente
     for c_id, vias_int in cruzamentos.items():
@@ -62,7 +65,8 @@ def calcular_decisao(vias_data, tempo_amarelo_fixo, step):
                         via['semaforo']['cor'] = 3
                         via['semaforo']['tempo_falta'] = tempo_amarelo_fixo
                     else:
-                        via['semaforo']['tempo_falta'] = 10 # Estende
+                        via['semaforo']['tempo_falta'] = algo_min_green_time # Estende
+                        via['semaforo']['green_duration'] = via['semaforo'].get('green_duration', 0) + algo_min_green_time
             continue
 
         if estado_eo == 2:
@@ -73,7 +77,8 @@ def calcular_decisao(vias_data, tempo_amarelo_fixo, step):
                         via['semaforo']['cor'] = 3
                         via['semaforo']['tempo_falta'] = tempo_amarelo_fixo
                     else:
-                        via['semaforo']['tempo_falta'] = 10
+                        via['semaforo']['tempo_falta'] = algo_min_green_time
+                        via['semaforo']['green_duration'] = via['semaforo'].get('green_duration', 0) + algo_min_green_time
             continue
 
         # REGRA 3: Exclusão Mútua Cumprida (Heurística de ONDA VERDE)
@@ -125,7 +130,10 @@ def calcular_decisao(vias_data, tempo_amarelo_fixo, step):
                     
                     if pode_abrir and tem_pressao_suficiente:
                         via['semaforo']['cor'] = 2
-                        via['semaforo']['tempo_falta'] = 20
+                        via['semaforo']['tempo_falta'] = algo_min_green_time
+                        via['semaforo']['green_duration'] = algo_min_green_time
+                        via['semaforo']['red_duration'] = via['semaforo'].get('_red_accumulated', 0)
+                        via['semaforo']['_red_accumulated'] = 0
                         fase_abriu_com_sucesso = True
                         print(f"[SD] Cruzamento {c_id}: Eixo {nome_fase} (Via {via['id']}) a VERDE. Pressão: {pressao:.1f}")
                 

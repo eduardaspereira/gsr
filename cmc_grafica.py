@@ -3,10 +3,10 @@
 # Unidade Curricular: Gestão e Segurança de Redes (2025/2026)
 # Ficheiro: cmc_grafica.py
 # 
-# Descrição: Gestor SNMP auxiliar focado na visualização visual da rede urbana.
-#            Realiza pedidos GET periódicos para monitorizar o número de veículos e o estado dos semáforos. 
-#            Mapeia a topologia de "Onda Verde" definida no config.json, utilizando códigos ANSI para desenhar um 
-#            mapa ASCII dinâmico que ilustra o fluxo de tráfego entre cruzamentos em tempo real.
+# Descrição: Gestor SNMP auxiliar focado na visualização gráfica da rede urbana.
+#            Realiza pedidos GET periódicos à MIB experimental (1.3.6.1.3.2026) para
+#            monitorizar veículos (roadTable .1.3.1) e semáforos (trafficLightTable .1.4.1).
+#            Desenha mapa ASCII dinâmico com códigos ANSI para ilustrar o fluxo de tráfego.
 # ========================================================================================================
 
 import asyncio
@@ -40,8 +40,8 @@ async def fetch_all_vias(snmp_engine):
         dados[via_id] = {'c': 0, 's': 2} 
         
         oids = {
-            'c': f'1.3.6.1.4.1.9999.1.1.2.1.6.{via_id}.0', # roadVehicleCount
-            's': f'1.3.6.1.4.1.9999.1.1.2.1.7.{via_id}.0'  # roadLightColor
+            'c': f'1.3.6.1.3.2026.1.3.1.6.{via_id}.0', # roadVehicleCount
+            's': f'1.3.6.1.3.2026.1.4.1.3.{via_id}.0'  # tlColor (trafficLightTable)
         }
         
         for key, oid in oids.items():

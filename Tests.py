@@ -219,7 +219,7 @@ if __name__ == "__main__":
         test_estabilidade_avg_wait_time()
         test_pressao_extrema_e_prioridade()
         test_vias_sem_saida_escoamento()
-        print("\n✅ EXCELENTE! TODOS OS 8 TESTES PASSARAM COM SUCESSO.")
+        print("\n✅ EXCELENTE! TODOS OS 12 TESTES PASSARAM COM SUCESSO.")
         print("A tua lógica de simulação e decisão está completamente validada.")
     except AssertionError as e:
         print(f"\n❌ ERRO DETETADO NO CÓDIGO: {e}")

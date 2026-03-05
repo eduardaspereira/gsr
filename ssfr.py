@@ -1,11 +1,11 @@
 # ======================================================================================================
 # Autores:
 # Unidade Curricular: Gestão e Segurança de Redes (2025/2026)
-# Ficheiro: sistema_decisao.py
-# Descrição: Componente de Simulação do Fluxo Rodoviário que corre localmente no SC. 
-#           Simula o comportamento físico da rede num passo virtual de 5 segundos, injetando veículos através 
-#           dos RGT e processando o atravessamento de semáforos entre vias de origem e destino. 
-#           Calcula estatísticas de performance, como o tempo médio de espera e o número total de veículos escoados.
+# Ficheiro: ssfr.py
+# Descrição: Componente de Simulação do Fluxo Rodoviário (SSFR) que corre localmente no SC.
+#           Simula o comportamento físico da rede num passo virtual, injetando veículos através
+#           dos RGT e processando o atravessamento de semáforos entre vias de origem e destino.
+#           Calcula estatísticas de performance e rastreia contadores por ligação (linkCarsPassed).
 # ======================================================================================================
 
 def simulate_step(vias, get_via_func, step):
@@ -50,6 +50,11 @@ def simulate_step(vias, get_via_func, step):
                 via['veiculos_atuais'] -= quantidade_a_passar
                 via_dest['veiculos_atuais'] += quantidade_a_passar
                 via['total_passados'] += quantidade_a_passar
+                # Rastreia contadores por ligação (linkCarsPassed na roadLinkTable)
+                if 'link_cars_passed' not in via:
+                    via['link_cars_passed'] = {}
+                link_key = f"{via['id']}_{destino['via_id']}"
+                via['link_cars_passed'][link_key] = via['link_cars_passed'].get(link_key, 0) + quantidade_a_passar
             elif not via_dest: 
                 # Sem destino definido = Escoamento para fora da rede
                 via['veiculos_atuais'] -= quantidade_a_passar

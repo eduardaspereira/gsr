@@ -1,93 +1,340 @@
+-- ======================================================================
+-- TRAFFIC-MGMT-MIB: MIB experimental para Gestão de Tráfego Rodoviário
+-- Universidade do Minho - Departamento de Informática
+-- Gestão e Segurança de Redes, 2025/2026
+-- ======================================================================
+--
+-- Árvore da MIB:
+--
+-- iso(1).org(3).dod(6).internet(1).experimental(3)
+--  |
+--  +-- trafficMgmtMIB (2026)
+--       |
+--       +-- trafficObjects (1)
+--       |    |
+--       |    +-- trafficGeneral (1)
+--       |    |    +-- simStatus (1) .............. [RW] SimOperStatus
+--       |    |    +-- simStepDuration (2) ........ [RW] Integer32 (1..60) [sec]
+--       |    |    +-- globalVehicleCount (3) ..... [RO] Gauge32
+--       |    |    +-- algoMinGreenTime (4) ....... [RW] Integer32 (5..120) [sec]
+--       |    |    +-- algoYellowTime (5) ......... [RO] Integer32 (1..10) [sec]
+--       |    |    +-- totalRoadCount (6) ......... [RO] Gauge32
+--       |    |    +-- totalCrossroadCount (7) .... [RO] Gauge32
+--       |    |
+--       |    +-- crossroadTable (2)
+--       |    |    +-- crossroadEntry (1) [INDEX: crossroadIndex]
+--       |    |         +-- crossroadIndex (1) .... [NA] Integer32 (1..65535)
+--       |    |         +-- crossroadMode (2) ..... [RW] CrossroadMode
+--       |    |         +-- crossroadRowStatus (3)  [RC] RowStatus
+--       |    |
+--       |    +-- roadTable (3)
+--       |    |    +-- roadEntry (1) [INDEX: roadIndex]
+--       |    |         +-- roadIndex (1) ......... [NA] Integer32 (1..65535)
+--       |    |         +-- roadName (2) .......... [RC] DisplayString (SIZE 0..64)
+--       |    |         +-- roadType (3) .......... [RC] RoadType
+--       |    |         +-- roadRTG (4) ........... [RW] Gauge32 [veic/min]
+--       |    |         +-- roadMaxCapacity (5) ... [RC] Gauge32
+--       |    |         +-- roadVehicleCount (6) .. [RO] Gauge32
+--       |    |         +-- roadTotalCarsPassed (7) [RO] Counter32
+--       |    |         +-- roadAverageWaitTime (8) [RO] Gauge32 [sec]
+--       |    |         +-- roadRowStatus (9) ..... [RC] RowStatus
+--       |    |
+--       |    +-- trafficLightTable (4)
+--       |    |    +-- trafficLightEntry (1) [INDEX: roadIndex]
+--       |    |         +-- tlCrossroadID (1) ..... [RC] Integer32
+--       |    |         +-- tlAxis (2) ............ [RC] TrafficAxis
+--       |    |         +-- tlColor (3) ........... [RO] TrafficColor
+--       |    |         +-- tlTimeRemaining (4) ... [RO] Integer32 [sec]
+--       |    |         +-- tlGreenDuration (5) ... [RO] Integer32 [sec]
+--       |    |         +-- tlRedDuration (6) ..... [RO] Integer32 [sec]
+--       |    |         +-- tlRowStatus (7) ....... [RC] RowStatus
+--       |    |
+--       |    +-- roadLinkTable (5)
+--       |         +-- roadLinkEntry (1) [INDEX: roadIndex, linkDestIndex]
+--       |              +-- linkDestIndex (1) ..... [NA] Integer32 (1..65535)
+--       |              +-- linkFlowRate (2) ...... [RC] Gauge32 [veic/min]
+--       |              +-- linkActive (3) ........ [RC] LinkState
+--       |              +-- linkCarsPassed (4) .... [RO] Counter32
+--       |              +-- linkRowStatus (5) ..... [RC] RowStatus
+--       |
+--       +-- trafficConformance (2)
+--            +-- trafficMIBCompliances (1)
+--            |    +-- trafficMIBCompliance (1)
+--            +-- trafficMIBGroups (2)
+--                 +-- trafficGeneralGroup (1)
+--                 +-- crossroadGroup (2)
+--                 +-- roadGroup (3)
+--                 +-- trafficLightGroup (4)
+--                 +-- roadLinkGroup (5)
+--
+-- ======================================================================
+
 TRAFFIC-MGMT-MIB DEFINITIONS ::= BEGIN
 
 IMPORTS
-    MODULE-IDENTITY, OBJECT-TYPE, Integer32, Gauge32, Counter32, experimental
+    MODULE-IDENTITY, OBJECT-TYPE, Integer32, Gauge32,
+    Counter32, experimental
         FROM SNMPv2-SMI
-    DisplayString, RowStatus
+    MODULE-COMPLIANCE, OBJECT-GROUP
+        FROM SNMPv2-CONF
+    DisplayString, RowStatus, TextualConvention
         FROM SNMPv2-TC;
+
+-- ======================================================================
+-- MODULE-IDENTITY
+-- ======================================================================
 
 trafficMgmtMIB MODULE-IDENTITY
     LAST-UPDATED "202602200000Z"
-    ORGANIZATION "UMinho - DI - Grupo por definir"
-    CONTACT-INFO "Goncalo S, Goncalo M, Eduarda P"
-    DESCRIPTION "MIB para o Sistema de Gestao de Trafego Rodoviario - GSR"
+    ORGANIZATION "Universidade do Minho - Departamento de Informatica"
+    CONTACT-INFO
+        "Mestrado em Engenharia Informatica
+         Gestao e Seguranca de Redes 2025/2026"
+    DESCRIPTION
+        "MIB experimental para o sistema de gestao de trafego
+         rodoviario urbano. Define objetos para representar uma
+         rede rodoviaria como um grafo dirigido, onde cada no
+         e um semaforo e cada aresta uma via de trafego num so
+         sentido. Permite a monitorizacao e controlo do fluxo
+         rodoviario atraves do protocolo SNMPv2c."
     REVISION "202602200000Z"
     DESCRIPTION
-        "Versao Final Fase A: Inclui metricas de performance e configuracao do algoritmo."
+        "Versao inicial da MIB do projeto GSR."
     ::= { experimental 2026 }
 
-trafficObjects OBJECT IDENTIFIER ::= { trafficMgmtMIB 1 }
+-- ======================================================================
+-- Convencoes Textuais (Tipos Enumerados)
+-- ======================================================================
 
--- ===========================================================================
--- TEXTUAL CONVENTIONS
--- ===========================================================================
-SimOperStatus ::= INTEGER { running(1), stopped(2), reset(3) }
-RoadType      ::= INTEGER { normal(1), sink(2), source(3) }
-TrafficColor  ::= INTEGER { red(1), green(2), yellow(3) }
-LinkState     ::= INTEGER { active(1), inactive(2) }
+SimOperStatus ::= TEXTUAL-CONVENTION
+    STATUS      current
+    DESCRIPTION
+        "Estado operacional da simulacao de trafego:
+         running(1)  - simulacao em execucao,
+         stopped(2)  - simulacao parada,
+         reset(3)    - reinicializacao ao estado inicial."
+    SYNTAX INTEGER {
+        running(1),
+        stopped(2),
+        reset(3)
+    }
 
--- ===========================================================================
--- GRUPO 1: GENERAL (CONTROLO E CONFIGURACAO GLOBAL)
--- ===========================================================================
-trafficGeneral OBJECT IDENTIFIER ::= { trafficObjects 1 }
+RoadType ::= TEXTUAL-CONVENTION
+    STATUS      current
+    DESCRIPTION
+        "Tipo de via rodoviaria:
+         normal(1)  - via com semaforo e ligacoes a vias destino,
+         sink(2)    - via de escoamento para fora da rede simulada,
+         source(3)  - via de entrada de veiculos externos sem
+                      semaforo de origem."
+    SYNTAX INTEGER {
+        normal(1),
+        sink(2),
+        source(3)
+    }
+
+TrafficColor ::= TEXTUAL-CONVENTION
+    STATUS      current
+    DESCRIPTION
+        "Cor atual do semaforo. O semaforo tem uma unica cor
+         em simultaneo para todas as vias de destino."
+    SYNTAX INTEGER {
+        red(1),
+        green(2),
+        yellow(3)
+    }
+
+TrafficAxis ::= TEXTUAL-CONVENTION
+    STATUS      current
+    DESCRIPTION
+        "Eixo direcional do semaforo dentro de um cruzamento.
+         Usado para definir a exclusao mutua entre fases:
+         ns(1) - eixo Norte-Sul,
+         ew(2) - eixo Este-Oeste."
+    SYNTAX INTEGER {
+        ns(1),
+        ew(2)
+    }
+
+CrossroadMode ::= TEXTUAL-CONVENTION
+    STATUS      current
+    DESCRIPTION
+        "Modo de operacao do cruzamento:
+         normal(1)         - operacao normal com fases,
+         flashingYellow(2) - amarelo intermitente (avaria),
+         emergencyRed(3)   - vermelho total de emergencia."
+    SYNTAX INTEGER {
+        normal(1),
+        flashingYellow(2),
+        emergencyRed(3)
+    }
+
+LinkState ::= TEXTUAL-CONVENTION
+    STATUS      current
+    DESCRIPTION
+        "Estado operacional de uma ligacao entre vias:
+         active(1)   - ligacao ativa, permite passagem de veiculos,
+         inactive(2) - ligacao desativada."
+    SYNTAX INTEGER {
+        active(1),
+        inactive(2)
+    }
+
+-- ======================================================================
+-- Hierarquia de Objetos
+-- ======================================================================
+
+trafficObjects     OBJECT IDENTIFIER ::= { trafficMgmtMIB 1 }
+trafficConformance OBJECT IDENTIFIER ::= { trafficMgmtMIB 2 }
+
+trafficGeneral     OBJECT IDENTIFIER ::= { trafficObjects 1 }
+
+-- ======================================================================
+-- Objetos Escalares (trafficGeneral)
+-- ======================================================================
 
 simStatus OBJECT-TYPE
-    SYNTAX SimOperStatus
-    MAX-ACCESS read-write
-    STATUS current
-    DESCRIPTION "Controla o estado do SSFR. Permite parar/arrancar a simulacao."
+    SYNTAX      SimOperStatus
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "Estado operacional da simulacao. Permite iniciar (running),
+         parar (stopped) ou reiniciar (reset) a simulacao de trafego."
     ::= { trafficGeneral 1 }
 
 simStepDuration OBJECT-TYPE
-    SYNTAX Integer32 (1..60)
-    UNITS "seconds"
-    MAX-ACCESS read-write
-    STATUS current
-    DESCRIPTION "Tempo virtual de cada passo de simulacao (ex: 5s)."
+    SYNTAX      Integer32 (1..60)
+    UNITS       "seconds"
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "Duracao de cada passo da simulacao em segundos. Define o
+         intervalo temporal virtual entre atualizacoes do SSFR e SD.
+         Valor tipico: 5 segundos."
     ::= { trafficGeneral 2 }
 
 globalVehicleCount OBJECT-TYPE
-    SYNTAX Gauge32
-    MAX-ACCESS read-only
-    STATUS current
-    DESCRIPTION "Total de veiculos a circular na rede neste momento."
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Numero total de veiculos presentes em todas as vias da
+         rede rodoviaria simulada no instante atual."
     ::= { trafficGeneral 3 }
 
 algoMinGreenTime OBJECT-TYPE
-    SYNTAX Integer32 (5..120)
-    UNITS "seconds"
-    MAX-ACCESS read-write
-    STATUS current
-    DESCRIPTION 
-        "Tempo minimo que um sinal deve ficar verde. 
-         Usado pelo SD para evitar mudancas demasiado rapidas."
+    SYNTAX      Integer32 (5..120)
+    UNITS       "seconds"
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "Tempo minimo de verde que o sistema de decisao deve atribuir
+         a qualquer semaforo. Parametro configuravel do algoritmo SD."
     ::= { trafficGeneral 4 }
 
 algoYellowTime OBJECT-TYPE
-    SYNTAX Integer32 (1..10)
-    UNITS "seconds"
-    MAX-ACCESS read-only
-    STATUS current
-    DESCRIPTION 
-        "Tempo fixo da cor amarela (definido no enunciado).
-         Disponivel aqui para consulta pela CMC."
+    SYNTAX      Integer32 (1..10)
+    UNITS       "seconds"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Tempo fixo de amarelo para todos os semaforos. Este valor e
+         constante e definido na configuracao inicial do sistema."
     ::= { trafficGeneral 5 }
 
--- ===========================================================================
--- GRUPO 2: ROAD TABLE (NOS DO GRAFO E METRICAS)
--- ===========================================================================
-roadTable OBJECT-TYPE
-    SYNTAX SEQUENCE OF RoadEntry
-    MAX-ACCESS not-accessible
-    STATUS current
-    DESCRIPTION "Tabela de vias com estado e estatisticas."
+totalRoadCount OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Numero total de vias registadas na roadTable."
+    ::= { trafficGeneral 6 }
+
+totalCrossroadCount OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Numero total de cruzamentos registados na crossroadTable."
+    ::= { trafficGeneral 7 }
+
+-- ======================================================================
+-- crossroadTable (2) - Cruzamentos
+-- ======================================================================
+
+crossroadTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF CrossroadEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Tabela de cruzamentos da rede rodoviaria. Cada cruzamento
+         agrupa um conjunto de semaforos que operam em exclusao mutua
+         entre eixos (fases)."
     ::= { trafficObjects 2 }
 
+crossroadEntry OBJECT-TYPE
+    SYNTAX      CrossroadEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Entrada para um cruzamento individual."
+    INDEX { crossroadIndex }
+    ::= { crossroadTable 1 }
+
+CrossroadEntry ::= SEQUENCE {
+    crossroadIndex      Integer32,
+    crossroadMode       CrossroadMode,
+    crossroadRowStatus  RowStatus
+}
+
+crossroadIndex OBJECT-TYPE
+    SYNTAX      Integer32 (1..65535)
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Identificador unico do cruzamento."
+    ::= { crossroadEntry 1 }
+
+crossroadMode OBJECT-TYPE
+    SYNTAX      CrossroadMode
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "Modo de operacao do cruzamento: normal, amarelo intermitente
+         ou vermelho de emergencia."
+    ::= { crossroadEntry 2 }
+
+crossroadRowStatus OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "Estado da linha para gestao de criacao e remocao de entradas
+         na crossroadTable."
+    ::= { crossroadEntry 3 }
+
+-- ======================================================================
+-- roadTable (3) - Objeto principal da MIB (Vias Rodoviarias)
+-- ======================================================================
+
+roadTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF RoadEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Tabela principal das vias rodoviarias. Cada via e uma aresta
+         do grafo da rede, com uma origem e um destino, representando
+         um unico sentido de trafego. Do ponto de vista do modelo de
+         informacao, a via e o objeto principal."
+    ::= { trafficObjects 3 }
+
 roadEntry OBJECT-TYPE
-    SYNTAX RoadEntry
-    MAX-ACCESS not-accessible
-    STATUS current
-    DESCRIPTION "Entrada de uma via. Managed via RowStatus."
+    SYNTAX      RoadEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Entrada para uma via individual com os seus atributos de
+         configuracao, estado e estatisticas."
     INDEX { roadIndex }
     ::= { roadTable 1 }
 
@@ -98,112 +345,223 @@ RoadEntry ::= SEQUENCE {
     roadRTG             Gauge32,
     roadMaxCapacity     Gauge32,
     roadVehicleCount    Gauge32,
-    roadLightColor      TrafficColor,
-    roadTimeRemaining   Integer32,
     roadTotalCarsPassed Counter32,
     roadAverageWaitTime Gauge32,
     roadRowStatus       RowStatus
 }
 
 roadIndex OBJECT-TYPE
-    SYNTAX Integer32 (1..65535)
-    MAX-ACCESS not-accessible
-    STATUS current
-    DESCRIPTION "ID unico da via."
+    SYNTAX      Integer32 (1..65535)
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Identificador unico da via rodoviaria. Usado como indice
+         nesta tabela e na trafficLightTable."
     ::= { roadEntry 1 }
 
 roadName OBJECT-TYPE
-    SYNTAX DisplayString
-    MAX-ACCESS read-create
-    STATUS current
-    DESCRIPTION "Nome da rua."
+    SYNTAX      DisplayString (SIZE(0..64))
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "Nome descritivo da via rodoviaria."
     ::= { roadEntry 2 }
 
 roadType OBJECT-TYPE
-    SYNTAX RoadType
-    MAX-ACCESS read-create
-    STATUS current
-    DESCRIPTION 
-        "Tipo da via. 
-         'sink'(2) indica a saida da rede (capacidade infinita, sem saidas).
-         'source'(3) indica vias apenas de entrada (sem semaforos anteriores)."
+    SYNTAX      RoadType
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "Tipo da via: normal (com semaforo e ligacoes), sink
+         (escoamento para fora da rede) ou source (fonte externa
+         de veiculos sem semaforo de origem)."
     ::= { roadEntry 3 }
 
 roadRTG OBJECT-TYPE
-    SYNTAX Gauge32
-    MAX-ACCESS read-create
-    STATUS current
-    DESCRIPTION "Ritmo de Trafego Gerado espontaneamente (carros/min)."
+    SYNTAX      Gauge32
+    UNITS       "vehicles per minute"
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "Ritmo Gerador de Trafego (RGT). Define o ritmo de entrada
+         de veiculos externos na via, em veiculos por minuto. Este
+         valor deve poder ser alterado externamente pelo administrador
+         do sistema atraves da CMC durante a simulacao."
     ::= { roadEntry 4 }
 
 roadMaxCapacity OBJECT-TYPE
-    SYNTAX Gauge32
-    MAX-ACCESS read-create
-    STATUS current
-    DESCRIPTION "Capacidade maxima. Se Count >= Max, bloqueia entrada."
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "Capacidade maxima da via em numero de veiculos. Quando
+         atingida, impede a entrada de novos veiculos na via."
     ::= { roadEntry 5 }
 
 roadVehicleCount OBJECT-TYPE
-    SYNTAX Gauge32
-    MAX-ACCESS read-only
-    STATUS current
-    DESCRIPTION "Numero atual de carros na via."
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Numero atual de veiculos na via, incluindo veiculos a
+         circular e a espera para atravessar o semaforo. Na
+         configuracao inicial, este valor pode ser diferente de zero."
     ::= { roadEntry 6 }
 
-roadLightColor OBJECT-TYPE
-    SYNTAX TrafficColor
-    MAX-ACCESS read-only
-    STATUS current
-    DESCRIPTION "Cor atual do semaforo."
+roadTotalCarsPassed OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Numero total acumulado de veiculos que atravessaram o
+         semaforo desta via desde o inicio da simulacao."
     ::= { roadEntry 7 }
 
-roadTimeRemaining OBJECT-TYPE
-    SYNTAX Integer32
-    MAX-ACCESS read-only
-    STATUS current
-    DESCRIPTION "Segundos restantes para a mudanca de cor."
+roadAverageWaitTime OBJECT-TYPE
+    SYNTAX      Gauge32
+    UNITS       "seconds"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Tempo medio de espera dos veiculos nesta via em segundos.
+         Calculado como a razao entre o tempo parado acumulado e
+         o total de veiculos que passaram ou estao na via."
     ::= { roadEntry 8 }
 
-roadTotalCarsPassed OBJECT-TYPE
-    SYNTAX Counter32
-    MAX-ACCESS read-only
-    STATUS current
-    DESCRIPTION 
-        "Contador acumulado de carros que sairam desta via (atravessaram o sinal)."
+roadRowStatus OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "Estado da linha para gestao de entradas na roadTable."
     ::= { roadEntry 9 }
 
-roadAverageWaitTime OBJECT-TYPE
-    SYNTAX Gauge32
-    UNITS "seconds"
-    MAX-ACCESS read-only
-    STATUS current
-    DESCRIPTION 
-        "Tempo medio de espera atual nesta via."
-    ::= { roadEntry 10 }
+-- ======================================================================
+-- trafficLightTable (4) - Semaforos
+-- ======================================================================
 
-roadRowStatus OBJECT-TYPE
-    SYNTAX RowStatus
-    MAX-ACCESS read-create
-    STATUS current
+trafficLightTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF TrafficLightEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
     DESCRIPTION
-        "Row lifecycle: permite criar, ativar ou destruir vias."
-    ::= { roadEntry 11 }
+        "Tabela dos semaforos da rede rodoviaria. Cada semaforo esta
+         associado a uma via (indexado por roadIndex) e controla o
+         fluxo de trafego para as vias de destino. Uma via pode nao
+         ter semaforo (e.g., vias do tipo sink). O semaforo tem
+         apenas uma cor em simultaneo para todas as vias destino."
+    ::= { trafficObjects 4 }
 
--- ===========================================================================
--- GRUPO 3: LINK TABLE (ARESTAS DO GRAFO)
--- ===========================================================================
+trafficLightEntry OBJECT-TYPE
+    SYNTAX      TrafficLightEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Entrada para um semaforo individual, indexado pela via
+         a que pertence (roadIndex herdado da roadTable)."
+    INDEX { roadIndex }
+    ::= { trafficLightTable 1 }
+
+TrafficLightEntry ::= SEQUENCE {
+    tlCrossroadID    Integer32,
+    tlAxis           TrafficAxis,
+    tlColor          TrafficColor,
+    tlTimeRemaining  Integer32,
+    tlGreenDuration  Integer32,
+    tlRedDuration    Integer32,
+    tlRowStatus      RowStatus
+}
+
+tlCrossroadID OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "Identificador do cruzamento a que o semaforo pertence.
+         Referencia crossroadIndex na crossroadTable."
+    ::= { trafficLightEntry 1 }
+
+tlAxis OBJECT-TYPE
+    SYNTAX      TrafficAxis
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "Eixo direcional do semaforo (Norte-Sul ou Este-Oeste).
+         Usado para definir fases de exclusao mutua no cruzamento."
+    ::= { trafficLightEntry 2 }
+
+tlColor OBJECT-TYPE
+    SYNTAX      TrafficColor
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Cor atual do semaforo. Atualizado pelo sistema de decisao
+         (SD) em cada passo da simulacao."
+    ::= { trafficLightEntry 3 }
+
+tlTimeRemaining OBJECT-TYPE
+    SYNTAX      Integer32
+    UNITS       "seconds"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Tempo restante em segundos ate a proxima mudanca de cor
+         do semaforo."
+    ::= { trafficLightEntry 4 }
+
+tlGreenDuration OBJECT-TYPE
+    SYNTAX      Integer32
+    UNITS       "seconds"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Duracao total do tempo de verde calculada pelo sistema de
+         decisao (SD) para este semaforo no ciclo atual."
+    ::= { trafficLightEntry 5 }
+
+tlRedDuration OBJECT-TYPE
+    SYNTAX      Integer32
+    UNITS       "seconds"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Duracao total do tempo de vermelho calculada pelo sistema
+         de decisao (SD) para este semaforo no ciclo atual."
+    ::= { trafficLightEntry 6 }
+
+tlRowStatus OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "Estado da linha para gestao de entradas na
+         trafficLightTable."
+    ::= { trafficLightEntry 7 }
+
+-- ======================================================================
+-- roadLinkTable (5) - Ligacoes entre vias (arestas do grafo)
+-- ======================================================================
+
 roadLinkTable OBJECT-TYPE
-    SYNTAX SEQUENCE OF RoadLinkEntry
-    MAX-ACCESS not-accessible
-    STATUS current
-    DESCRIPTION "Tabela de escoamento e distribuicao."
-    ::= { trafficObjects 3 }
+    SYNTAX      SEQUENCE OF RoadLinkEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Tabela de ligacoes entre vias. Define as arestas do grafo
+         da rede rodoviaria, com o ritmo de distribuicao de trafego
+         entre cada par origem-destino. Quando uma via de origem
+         permite a ligacao a mais do que uma via de destino, a
+         definicao dos ritmos controla a percentagem de trafego
+         que cada via destino vai acomodar."
+    ::= { trafficObjects 5 }
 
 roadLinkEntry OBJECT-TYPE
-    SYNTAX RoadLinkEntry
-    MAX-ACCESS not-accessible
-    STATUS current
-    DESCRIPTION "Ligacao entre vias. Managed via RowStatus."
+    SYNTAX      RoadLinkEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Ligacao entre uma via de origem e uma via de destino, com
+         o ritmo de distribuicao e estado operacional."
     INDEX { roadIndex, linkDestIndex }
     ::= { roadLinkTable 1 }
 
@@ -211,37 +569,144 @@ RoadLinkEntry ::= SEQUENCE {
     linkDestIndex   Integer32,
     linkFlowRate    Gauge32,
     linkActive      LinkState,
+    linkCarsPassed  Counter32,
     linkRowStatus   RowStatus
 }
 
 linkDestIndex OBJECT-TYPE
-    SYNTAX Integer32 (1..65535)
-    MAX-ACCESS not-accessible
-    STATUS current
-    DESCRIPTION "ID da via de destino."
+    SYNTAX      Integer32 (1..65535)
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Identificador da via de destino desta ligacao.
+         Referencia roadIndex na roadTable."
     ::= { roadLinkEntry 1 }
 
 linkFlowRate OBJECT-TYPE
-    SYNTAX Gauge32
-    MAX-ACCESS read-create
-    STATUS current
-    DESCRIPTION 
-        "Ritmo de escoamento (carros/min). Define a percentagem de distribuicao."
+    SYNTAX      Gauge32
+    UNITS       "vehicles per minute"
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "Ritmo de distribuicao de trafego da via de origem para
+         esta via de destino, em veiculos por minuto. Fixado na
+         configuracao inicial do sistema."
     ::= { roadLinkEntry 2 }
 
 linkActive OBJECT-TYPE
-    SYNTAX LinkState
-    MAX-ACCESS read-create
-    STATUS current
-    DESCRIPTION "Estado da ligacao."
+    SYNTAX      LinkState
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "Estado operacional da ligacao: active (permite passagem
+         de veiculos) ou inactive (ligacao desativada)."
     ::= { roadLinkEntry 3 }
 
-linkRowStatus OBJECT-TYPE
-    SYNTAX RowStatus
-    MAX-ACCESS read-create
-    STATUS current
+linkCarsPassed OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
     DESCRIPTION
-        "Row lifecycle: permite gerir as ligacoes entre vias."
+        "Numero total de veiculos que passaram por esta ligacao
+         especifica desde o inicio da simulacao."
     ::= { roadLinkEntry 4 }
+
+linkRowStatus OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "Estado da linha para gestao de entradas na roadLinkTable."
+    ::= { roadLinkEntry 5 }
+
+-- ======================================================================
+-- Conformidade (trafficConformance)
+-- ======================================================================
+
+trafficMIBCompliances OBJECT IDENTIFIER ::= { trafficConformance 1 }
+trafficMIBGroups      OBJECT IDENTIFIER ::= { trafficConformance 2 }
+
+trafficMIBCompliance MODULE-COMPLIANCE
+    STATUS      current
+    DESCRIPTION
+        "Declaracao de conformidade para implementacoes da
+         TRAFFIC-MGMT-MIB."
+    MODULE
+        MANDATORY-GROUPS {
+            trafficGeneralGroup,
+            crossroadGroup,
+            roadGroup,
+            trafficLightGroup,
+            roadLinkGroup
+        }
+    ::= { trafficMIBCompliances 1 }
+
+trafficGeneralGroup OBJECT-GROUP
+    OBJECTS {
+        simStatus,
+        simStepDuration,
+        globalVehicleCount,
+        algoMinGreenTime,
+        algoYellowTime,
+        totalRoadCount,
+        totalCrossroadCount
+    }
+    STATUS      current
+    DESCRIPTION
+        "Grupo de objetos escalares gerais de controlo da simulacao."
+    ::= { trafficMIBGroups 1 }
+
+crossroadGroup OBJECT-GROUP
+    OBJECTS {
+        crossroadMode,
+        crossroadRowStatus
+    }
+    STATUS      current
+    DESCRIPTION
+        "Grupo de objetos para gestao de cruzamentos."
+    ::= { trafficMIBGroups 2 }
+
+roadGroup OBJECT-GROUP
+    OBJECTS {
+        roadName,
+        roadType,
+        roadRTG,
+        roadMaxCapacity,
+        roadVehicleCount,
+        roadTotalCarsPassed,
+        roadAverageWaitTime,
+        roadRowStatus
+    }
+    STATUS      current
+    DESCRIPTION
+        "Grupo de objetos para gestao de vias rodoviarias."
+    ::= { trafficMIBGroups 3 }
+
+trafficLightGroup OBJECT-GROUP
+    OBJECTS {
+        tlCrossroadID,
+        tlAxis,
+        tlColor,
+        tlTimeRemaining,
+        tlGreenDuration,
+        tlRedDuration,
+        tlRowStatus
+    }
+    STATUS      current
+    DESCRIPTION
+        "Grupo de objetos para gestao de semaforos."
+    ::= { trafficMIBGroups 4 }
+
+roadLinkGroup OBJECT-GROUP
+    OBJECTS {
+        linkFlowRate,
+        linkActive,
+        linkCarsPassed,
+        linkRowStatus
+    }
+    STATUS      current
+    DESCRIPTION
+        "Grupo de objetos para gestao de ligacoes entre vias."
+    ::= { trafficMIBGroups 5 }
 
 END

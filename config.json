@@ -1,53 +1,64 @@
 {
   "simulation_step": 5,
   "tempo_amarelo_fixo": 3,
+  "algo_min_green_time": 10,
+  "cruzamentos": [
+    {"id": 1, "mode": 1},
+    {"id": 2, "mode": 1},
+    {"id": 3, "mode": 1}
+  ],
   "vias": [
     {
       "id": 1,
       "nome": "Avenida Principal - Troco 1",
+      "tipo": "normal",
       "cruzamento": 1,
       "eixo": "NS",
       "rgt": 20,
       "veiculos_atuais": 0,
       "capacidade": 100,
-      "semaforo": { "cor": 1, "tempo_falta": 20, "destinos": [ {"via_id": 2, "ritmo_saida": 30} ] }
+      "semaforo": { "cor": 1, "tempo_falta": 20, "green_duration": 20, "red_duration": 0, "destinos": [ {"via_id": 2, "ritmo_saida": 30} ] }
     },
     {
       "id": 2,
       "nome": "Avenida Principal - Troco 2",
+      "tipo": "normal",
       "cruzamento": 2,
       "eixo": "NS",
       "rgt": 0,
       "veiculos_atuais": 0,
       "capacidade": 100,
-      "semaforo": { "cor": 1, "tempo_falta": 20, "destinos": [ {"via_id": 99, "ritmo_saida": 30} ] }
+      "semaforo": { "cor": 1, "tempo_falta": 20, "green_duration": 20, "red_duration": 0, "destinos": [ {"via_id": 99, "ritmo_saida": 30} ] }
     },
     {
       "id": 3,
       "nome": "Rua Transversal Cruzamento 1",
+      "tipo": "normal",
       "cruzamento": 1,
       "eixo": "EO",
       "rgt": 5,
       "veiculos_atuais": 0,
       "capacidade": 50,
-      "semaforo": { "cor": 1, "tempo_falta": 20, "destinos": [ {"via_id": 98, "ritmo_saida": 15} ] }
+      "semaforo": { "cor": 1, "tempo_falta": 20, "green_duration": 20, "red_duration": 0, "destinos": [ {"via_id": 98, "ritmo_saida": 15} ] }
     },
     {
       "id": 4,
       "nome": "Rua Transversal Cruzamento 2",
+      "tipo": "normal",
       "cruzamento": 2,
       "eixo": "EO",
       "rgt": 5,
       "veiculos_atuais": 0,
       "capacidade": 50,
-      "semaforo": { "cor": 1, "tempo_falta": 20, "destinos": [ {"via_id": 97, "ritmo_saida": 15} ] }
+      "semaforo": { "cor": 1, "tempo_falta": 20, "green_duration": 20, "red_duration": 0, "destinos": [ {"via_id": 97, "ritmo_saida": 15} ] }
     },
-    { "id": 99, "nome": "Sumidouro Sul", "rgt": 0, "veiculos_atuais": 0, "capacidade": 9999 },
-    { "id": 98, "nome": "Sumidouro Transversal 1", "rgt": 0, "veiculos_atuais": 0, "capacidade": 9999 },
-    { "id": 97, "nome": "Sumidouro Transversal 2", "rgt": 0, "veiculos_atuais": 0, "capacidade": 9999 },
+    { "id": 97, "nome": "Sumidouro Transversal 2", "tipo": "sink", "rgt": 0, "veiculos_atuais": 0, "capacidade": 9999 },
+    { "id": 98, "nome": "Sumidouro Transversal 1", "tipo": "sink", "rgt": 0, "veiculos_atuais": 0, "capacidade": 9999 },
+    { "id": 99, "nome": "Sumidouro Sul", "tipo": "sink", "rgt": 0, "veiculos_atuais": 0, "capacidade": 9999 },
     {
       "id": 10,
       "nome": "Entrada Norte Principal",
+      "tipo": "normal",
       "cruzamento": 3,
       "eixo": "NS",
       "rgt": 0,
@@ -56,16 +67,18 @@
       "semaforo": { 
         "cor": 2, 
         "tempo_falta": 10, 
+        "green_duration": 20,
+        "red_duration": 0,
         "destinos": [ 
           {"via_id": 11, "ritmo_saida": 40}, 
           {"via_id": 12, "ritmo_saida": 20} 
         ] 
       }
     },
-    { "id": 11, "nome": "Via Destino A", "veiculos_atuais": 0, "capacidade": 100 },
-    { "id": 12, "nome": "Via Destino B", "veiculos_atuais": 0, "capacidade": 100 }
+    { "id": 11, "nome": "Via Destino A", "tipo": "sink", "veiculos_atuais": 0, "capacidade": 100 },
+    { "id": 12, "nome": "Via Destino B", "tipo": "sink", "veiculos_atuais": 0, "capacidade": 100 }
   ],
-    "eventos_rgt": [
+  "eventos_rgt": [
     {"tempo_simulacao": 30, "via_id": 1, "novo_rgt": 80, "descricao": "Início Hora de Ponta Norte"},
     {"tempo_simulacao": 120, "via_id": 1, "novo_rgt": 20, "descricao": "Fim Hora de Ponta Norte"}
   ]
