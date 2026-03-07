@@ -5,7 +5,7 @@
 # 
 # Descrição: Gestor SNMP auxiliar focado na visualização visual da rede urbana.
 #            Realiza pedidos GET periódicos para monitorizar o número de veículos e o estado dos semáforos. 
-#            Mapeia a topologia de "Onda Verde" definida no config.json, utilizando códigos ANSI para desenhar um 
+#            Mapeia a topologia definida no config.json, utilizando códigos ANSI para desenhar um 
 #            mapa ASCII dinâmico que ilustra o fluxo de tráfego entre cruzamentos em tempo real.
 # ========================================================================================================
 
@@ -13,6 +13,10 @@ import asyncio
 import time
 import os
 from pysnmp.hlapi.asyncio import *
+
+# OID base: experimental(3).trafficMgmtMIB(2026).trafficObjects(1)
+OID_ROAD_ENTRY   = '1.3.6.1.3.2026.1.3.1'   # roadEntry
+OID_TL_ENTRY     = '1.3.6.1.3.2026.1.4.1'   # trafficLightEntry
 
 def clear_console():
     os.system('cls' if os.name == 'nt' else 'clear')
@@ -36,12 +40,12 @@ async def fetch_all_vias(snmp_engine):
     vias_ids = [1, 2, 3, 4, 97, 98, 99]
     
     for via_id in vias_ids:
-        # Inicialização (Sumidouros 97-99 não têm semáforo, logo cor Verde 2 por defeito)
+        # Sumidouros 97-99 não têm semáforo, logo cor Verde 2 por defeito
         dados[via_id] = {'c': 0, 's': 2} 
         
         oids = {
-            'c': f'1.3.6.1.4.1.9999.1.1.2.1.6.{via_id}.0', # roadVehicleCount
-            's': f'1.3.6.1.4.1.9999.1.1.2.1.7.{via_id}.0'  # roadLightColor
+            'c': f'{OID_ROAD_ENTRY}.6.{via_id}.0',   # roadVehicleCount
+            's': f'{OID_TL_ENTRY}.3.{via_id}.0'       # tlColor
         }
         
         for key, oid in oids.items():

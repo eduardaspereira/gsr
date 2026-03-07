@@ -20,7 +20,7 @@ def criar_via(v_id, cruzamento=None, eixo=None, rgt=0, veiculos=0, cor=1, tempo_
     if cruzamento is not None:
         via['cruzamento'] = cruzamento
         via['eixo'] = eixo
-        via['semaforo'] = {'cor': cor, 'tempo_falta': tempo_falta, 'destinos': destinos}
+        via['semaforo'] = {'cor': cor, 'tempo_falta': tempo_falta, 'destinos': destinos, 'green_duration': 0, 'red_duration': 0}
         
     return via
 
