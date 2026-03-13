@@ -47,11 +47,6 @@ TrafficColor ::= TEXTUAL-CONVENTION
     DESCRIPTION "Cor do semaforo."
     SYNTAX      INTEGER { red(1), green(2), yellow(3) }
 
-TrafficAxis ::= TEXTUAL-CONVENTION
-    STATUS      current
-    DESCRIPTION "Eixo do semaforo no cruzamento."
-    SYNTAX      INTEGER { ns(1), ew(2) }
-
 CrossroadMode ::= TEXTUAL-CONVENTION
     STATUS      current
     DESCRIPTION "Modo operacional de um cruzamento."
@@ -114,6 +109,7 @@ globalAvgWaitTime OBJECT-TYPE
 
 totalVehiclesEntered OBJECT-TYPE
     SYNTAX      Counter32
+    UNITS       "vehicles"
     MAX-ACCESS  read-only
     STATUS      current
     DESCRIPTION "Total acumulado de veiculos que entraram na rede."
@@ -121,6 +117,7 @@ totalVehiclesEntered OBJECT-TYPE
 
 totalVehiclesExited OBJECT-TYPE
     SYNTAX      Counter32
+    UNITS       "vehicles"
     MAX-ACCESS  read-only
     STATUS      current
     DESCRIPTION "Total acumulado de veiculos que sairam da rede."
@@ -247,6 +244,7 @@ roadRTG OBJECT-TYPE
 
 roadMaxCapacity OBJECT-TYPE
     SYNTAX      Gauge32
+    UNITS       "vehicles"
     MAX-ACCESS  read-create
     STATUS      current
     DESCRIPTION "Capacidade maxima da via em numero de veiculos."
@@ -254,6 +252,7 @@ roadMaxCapacity OBJECT-TYPE
 
 roadVehicleCount OBJECT-TYPE
     SYNTAX      Gauge32
+    UNITS       "vehicles"
     MAX-ACCESS  read-only
     STATUS      current
     DESCRIPTION "Numero atual de veiculos na via."
@@ -261,6 +260,7 @@ roadVehicleCount OBJECT-TYPE
 
 roadTotalCarsPassed OBJECT-TYPE
     SYNTAX      Counter32
+    UNITS       "vehicles"
     MAX-ACCESS  read-only
     STATUS      current
     DESCRIPTION "Total acumulado de veiculos que atravessaram esta via desde o inicio da simulacao."
@@ -289,7 +289,7 @@ roadTLColor OBJECT-TYPE
     ::= { roadEntry 10 }
 
 roadTLTimeRemaining OBJECT-TYPE
-    SYNTAX      Integer32
+    SYNTAX      Integer32 (0..3600)
     UNITS       "seconds"
     MAX-ACCESS  read-only
     STATUS      current
@@ -297,7 +297,7 @@ roadTLTimeRemaining OBJECT-TYPE
     ::= { roadEntry 11 }
 
 roadTLGreenDuration OBJECT-TYPE
-    SYNTAX      Integer32
+    SYNTAX      Integer32 (1..3600)
     UNITS       "seconds"
     MAX-ACCESS  read-only
     STATUS      current
@@ -305,7 +305,7 @@ roadTLGreenDuration OBJECT-TYPE
     ::= { roadEntry 12 }
 
 roadTLRedDuration OBJECT-TYPE
-    SYNTAX      Integer32
+    SYNTAX      Integer32 (1..3600)
     UNITS       "seconds"
     MAX-ACCESS  read-only
     STATUS      current
@@ -321,7 +321,7 @@ roadRowStatus OBJECT-TYPE
 
 
 -- =======================================================================
--- roadLinkTable (4)
+-- roadLinkTable (5)
 -- =======================================================================
 
 roadLinkTable OBJECT-TYPE
@@ -349,24 +349,25 @@ linkIndex OBJECT-TYPE
 
 linkSourceIndex OBJECT-TYPE
     SYNTAX      Integer32 (1..65535)
-    MAX-ACCESS  read-create
+    MAX-ACCESS  read-only
     STATUS      current
     DESCRIPTION "Referencia ao roadIndex da via de origem."
     ::= { roadLinkEntry 2 }
 
 linkDestIndex OBJECT-TYPE
     SYNTAX      Integer32 (1..65535)
-    MAX-ACCESS  read-create
+    MAX-ACCESS  read-only
     STATUS      current
     DESCRIPTION "Referencia ao roadIndex da via de destino."
     ::= { roadLinkEntry 3 }
 
 linkFlowRate OBJECT-TYPE
     SYNTAX      Gauge32
-    UNITS       "vehicles per minute"
-    MAX-ACCESS  read-create
+    UNITS       "cars/second"
+    MAX-ACCESS  read-only
     STATUS      current
-    DESCRIPTION "Taxa de fluxo de veiculos nesta ligacao."
+    DESCRIPTION
+        "Ritmo atual de escoamento de veiculos nesta ligacao, em carros por segundo."
     ::= { roadLinkEntry 4 }
 
 linkActive OBJECT-TYPE
@@ -378,6 +379,7 @@ linkActive OBJECT-TYPE
 
 linkCarsPassed OBJECT-TYPE
     SYNTAX      Counter32
+    UNITS       "vehicles"
     MAX-ACCESS  read-only
     STATUS      current
     DESCRIPTION "Total acumulado de veiculos que passaram por esta ligacao."
@@ -389,5 +391,14 @@ linkRowStatus OBJECT-TYPE
     STATUS      current
     DESCRIPTION "Estado da linha na tabela de ligacoes."
     ::= { roadLinkEntry 7 }
+
+linkOccupancyPercent OBJECT-TYPE
+    SYNTAX      Gauge32 (0..100)
+    UNITS       "percent"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "Percentagem de ocupacao atual da via de destino associada a esta ligacao."
+    ::= { roadLinkEntry 8 }
 
 END
