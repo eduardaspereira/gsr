@@ -6,69 +6,58 @@ iso(1).org(3).dod(6).internet(1).experimental(3)
  +-- trafficMgmtMIB (2026)
       |
       +-- trafficObjects (1)
-      |    |
-      |    +-- trafficGeneral (1)
-      |    |    |
-      |    |    +-- simStatus (1) .............. [RW] SimOperStatus {running(1), stopped(2), reset(3)}
-      |    |    +-- simStepDuration (2) ........ [RW] Integer32 (1..60) [sec]
-      |    |    +-- simElapsedTime (3) ......... [RO] Counter32 [sec]
-      |    |    +-- globalVehicleCount (4) ..... [RO] Gauge32
-      |    |    +-- globalAvgWaitTime (5) ...... [RO] Gauge32 [sec]
-      |    |    +-- totalVehiclesEntered (6) ... [RO] Counter32
-      |    |    +-- totalVehiclesExited (7) .... [RO] Counter32
-      |    |    +-- algoMinGreenTime (8) ....... [RW] Integer32 (5..120) [sec]
-      |    |    +-- algoMaxGreenTime (9) ....... [RW] Integer32 (10..300) [sec]
-      |    |    +-- algoYellowTime (10) ........ [RO] Integer32 (1..10) [sec]
-      |    |
-      |    +-- crossroadTable (2)
-      |    |    |
-      |    |    +-- crossroadEntry (1) [INDEX: crossroadIndex]
-      |    |         |
-      |    |         +-- crossroadIndex (1) ...... [NA] Integer32 (1..65535)
-      |    |         +-- crossroadMode (2) ....... [RW] CrossroadMode {normal(1), flashingYellow(2), allRed(3)}
-      |    |         +-- crossroadRowStatus (3) .. [RC] RowStatus
-      |    |
-      |    +-- roadTable (3)
-      |    |    |
-      |    |    +-- roadEntry (1) [INDEX: roadIndex]
-      |    |         |
-      |    |         +-- roadIndex (1) ........... [NA] Integer32 (1..65535)
-      |    |         +-- roadName (2) ............ [RC] DisplayString (SIZE(0..64))
-      |    |         +-- roadType (3) ............ [RC] RoadType {normal(1), sink(2), source(3)}
-      |    |         +-- roadRTG (4) ............. [RW] Gauge32 [veículos/min]
-      |    |         +-- roadMaxCapacity (5) ..... [RC] Gauge32
-      |    |         +-- roadVehicleCount (6) .... [RO] Gauge32
-      |    |         +-- roadTotalCarsPassed (7) . [RO] Counter32
-      |    |         +-- roadAverageWaitTime (8) . [RO] Gauge32 [sec]
-      |    |         +-- roadRowStatus (9) ....... [RC] RowStatus
-      |    |
-      |    +-- trafficLightTable (4)     //adicionar roadIndex; fundir tabelas roadTable e trafficLightTable; esquematizar csv, 
-      |    |    |
-      |    |    +-- trafficLightEntry (1) [INDEX: roadIndex]
-      |    |         |
-      |    |         | (Nota: O roadIndex é herdado diretamente da roadTable)
-      |    |         |
-      |    |         +-- tlCrossroadID (1) ....... [RC] Integer32 (Aponta para crossroadIndex)
-      |    |         +-- tlAxis (2) .............. [RC] TrafficAxis {ns(1), ew(2)}
-      |    |         +-- tlColor (3) ............. [RO] TrafficColor {red(1), green(2), yellow(3)}
-      |    |         +-- tlTimeRemaining (4) ..... [RO] Integer32 [sec]
-      |    |         +-- tlGreenDuration (5) ..... [RO] Integer32 [sec]
-      |    |         +-- tlRedDuration (6) ....... [RO] Integer32 [sec]
-      |    |         +-- tlDrainRate (7) ......... [RC] Gauge32 [veic/min] (ritmo escoamento para vias sink)
-      |    |         +-- tlRowStatus (8) ......... [RC] RowStatus
-      |    | 
-      |    +-- roadLinkTable (5)
-      |         |
-      |         +-- roadLinkEntry (1) [INDEX: linkIndex]
-      |              |
-      |              +-- linkIndex (1) ........... [NA] Integer32 (1..65535)
-      |              +-- linkSourceIndex (2) ..... [RC] Integer32 (Aponta para roadIndex da via origem)
-      |              +-- linkDestIndex (3) ....... [RC] Integer32 (Aponta para roadIndex da via destino)
-      |              +-- linkFlowRate (4) ........ [RC] Gauge32 [veíc/min]
-      |              +-- linkActive (5) .......... [RC] LinkState {active(1), inactive(2)}
-      |              +-- linkCarsPassed (6) ...... [RO] Counter32
-      |              +-- linkRowStatus (7) ....... [RC] RowStatus
-      |
+           |
+           +-- trafficGeneral (1)
+           |    |
+           |    +-- simStatus (1) .............. [RW] SimOperStatus
+           |    +-- simStepDuration (2) ........ [RW] Integer32
+           |    +-- simElapsedTime (3) ......... [RO] Counter32
+           |    +-- globalVehicleCount (4) ..... [RO] Gauge32
+           |    +-- globalAvgWaitTime (5) ...... [RO] Gauge32
+           |    +-- totalVehiclesEntered (6) ... [RO] Counter32
+           |    +-- totalVehiclesExited (7) .... [RO] Counter32
+           |    +-- algoMinGreenTime (8) ....... [RW] Integer32
+           |    +-- algoMaxGreenTime (9) ....... [RW] Integer32
+           |    +-- algoYellowTime (10) ........ [RO] Integer32
+           |
+           +-- crossroadTable (2)
+           |    |
+           |    +-- crossroadEntry (1) [INDEX: crossroadIndex]
+           |         |
+           |         +-- crossroadIndex (1) ...... [NA] Integer32
+           |         +-- crossroadMode (2) ....... [RW] CrossroadMode
+           |         +-- crossroadRowStatus (3) .. [RC] RowStatus
+           |
+           +-- roadTable (3)
+           |    |
+           |    +-- roadEntry (1) [INDEX: roadIndex]
+           |         |
+           |         +-- roadIndex (1) ........... [NA] Integer32
+           |         +-- roadName (2) ............ [RC] DisplayString
+           |         +-- roadType (3) ............ [RC] RoadType
+           |         +-- roadRTG (4) ............. [RW] Gauge32
+           |         +-- roadMaxCapacity (5) ..... [RC] Gauge32
+           |         +-- roadVehicleCount (6) .... [RO] Gauge32
+           |         +-- roadTotalCarsPassed (7) . [RO] Counter32
+           |         +-- roadAvgWaitTime (8) ..... [RO] Gauge32
+           |         +-- roadCrossroadID (9) ..... [RC] Integer32
+           |         +-- roadTLColor (10) ........ [RO] TrafficColor
+           |         +-- roadTLTimeRemaining (11). [RO] Integer32
+           |         +-- roadTLGreenDuration (12). [RO] Integer32
+           |         +-- roadTLRedDuration (13) .. [RO] Integer32
+           |         +-- roadRowStatus (14) ...... [RC] RowStatus
+           |
+           +-- roadLinkTable (5)  
+                |
+                +-- roadLinkEntry (1) [INDEX: linkIndex]
+                     |
+                     +-- linkIndex (1) ........... [NA] Integer32
+                     +-- linkSourceIndex (2) ..... [RC] Integer32
+                     +-- linkDestIndex (3) ....... [RC] Integer32
+                     +-- linkFlowRate (4) ........ [RC] Gauge32
+                     +-- linkActive (5) .......... [RC] LinkState
+                     +-- linkCarsPassed (6) ...... [RO] Counter32
+                     +-- linkRowStatus (7) ....... [RC] RowStatus
 
 ```
 
