@@ -11,11 +11,11 @@ iso(1).org(3).dod(6).internet(1).experimental(3)
            |    |                                                         
            |    +-- simStatus (1) .............. [RW] SimOperStatus       // arranca/para/reset da simulacao
            |    +-- simStepDuration (2) ........ [RW] Integer32           // duracao do passo de simulacao (s)
-           |    +-- simElapsedTime (3) ......... [RO] Counter32           // tempo total decorrido da simulacao
+           |    +-- simElapsedSeconds (3) ......... [RO] Counter32           // tempo total decorrido da simulacao
            |    +-- globalVehicleCount (4) ..... [RO] Gauge32             // total atual de veiculos na rede
            |    +-- globalAvgWaitTime (5) ...... [RO] Gauge32             // media global de espera dos veiculos
-           |    +-- totalVehiclesEntered (6) ... [RO] Counter32           // acumulado de entradas na rede
-           |    +-- totalVehiclesExited (7) .... [RO] Counter32           // acumulado de saidas da rede
+           |    +-- totalEnteredVehicles (6) ... [RO] Counter32           // acumulado de entradas na rede
+           |    +-- totalExitedVehicles (7) .... [RO] Counter32           // acumulado de saidas da rede
            |    +-- algoMinGreenTime (8) ....... [RW] Integer32           // limite minimo do verde no algoritmo SD
            |    +-- algoMaxGreenTime (9) ....... [RW] Integer32           // limite maximo do verde no algoritmo SD
            |    +-- algoYellowTime (10) ........ [RO] Integer32           // tempo fixo de amarelo usado pelo SD
@@ -26,7 +26,7 @@ iso(1).org(3).dod(6).internet(1).experimental(3)
            |    +-- crossroadEntry (1) [INDEX: crossroadIndex]            // linha de cruzamento identificada por indice unico
            |         |                                                    //% erro td flashing(++) ou td red(pouco interesse)
            |         +-- crossroadIndex (1) ...... [NA] Integer32         // chave interna do cruzamento
-           |         +-- crossroadMode (2) ....... [RW] CrossroadMode     // modo de operacao (normal)
+           |         +-- crossroadMode (2) ....... [RC] CrossroadMode     // modo de operacao (normal)
            |         +-- crossroadRowStatus (3) .. [RC] RowStatus         // criacao/ativacao/remocao da linha
            |                                                              
            +-- roadTable (3)                                              // tabela principal de vias (inclui dados do semaforo)
@@ -39,7 +39,7 @@ iso(1).org(3).dod(6).internet(1).experimental(3)
            |         +-- roadRTG (4) ............. [RW] Gauge32           // ritmo gerador de trafego da via
            |         +-- roadMaxCapacity (5) ..... [RC] Gauge32           // capacidade maxima de veiculos da via
            |         +-- roadVehicleCount (6) .... [RO] Gauge32           // numero atual de veiculos na via
-           |         +-- roadTotalCarsPassed (7) . [RO] Counter32         // acumulado de carros que passaram na via
+           |         +-- roadTotalPassedCars (7) . [RO] Counter32         // acumulado de carros que passaram na via
            |         +-- roadAvgWaitTime (8) ..... [RO] Gauge32           // media de espera dos carros nesta via
            |         +-- roadCrossroadID (9) ..... [RC] Integer32         // cruzamento ao qual a via termina
            |         +-- roadTLColor (10) ........ [RO] TrafficColor      // cor atual do semaforo da via
@@ -56,7 +56,7 @@ iso(1).org(3).dod(6).internet(1).experimental(3)
                      +-- linkDestIndex (3) ....... [RO] Integer32         // numero da via de destino
                      +-- linkFlowRate (4) ........ [RO] Gauge32           // ritmo atual de escoamento (carros/s)
                      +-- linkActive (5) .......... [RC] LinkState         // estado logico da ligacao (ativa/inativa)
-                     +-- linkCarsPassed (6) ...... [RO] Counter32         // acumulado de carros passados nesta ligacao
+                     +-- linkPassedCars (6) ...... [RO] Counter32         // acumulado de carros passados nesta ligacao
                      +-- linkRowStatus (7) ....... [RC] RowStatus         // criacao/ativacao/remocao da linha da ligacao
                      +-- linkOccupancyPercent (8). [RO] Gauge32           // ocupacao percentual atual da via de destino
 
@@ -74,7 +74,7 @@ Como ilustrado no diagrama de blocos abaixo, o sistema centraliza o núcleo lóg
 
 A comunicação externa ocorre exclusivamente entre a Consola de Monitorização e Controlo (CMC) e o Sistema Central (SC) através do protocolo SNMPv2c (sem mecanismos de segurança nesta fase).
 
-- **Monitorização (CMC → SC)**: A CMC atua como um gestor SNMP, enviando pedidos assíncronos GET (ou GETNEXT para tabelas) ao SC para ler continuamente as instâncias da MIB (ex: roadVehicleCount, roadTLColor, roadTLTimeRemaining, roadTotalCarsPassed, roadAvgWaitTime) e atualizar a sua interface de acompanhamento em quase tempo real.
+- **Monitorização (CMC → SC)**: A CMC atua como um gestor SNMP, enviando pedidos assíncronos GET (ou GETNEXT para tabelas) ao SC para ler continuamente as instâncias da MIB (ex: roadVehicleCount, roadTLColor, roadTLTimeRemaining, roadTotalPassedCars, roadAvgWaitTime) e atualizar a sua interface de acompanhamento em quase tempo real.
 
 - **Configuração e Controlo (CMC → SC)**: Quando o administrador introduz um comando no prompt da CMC, esta envia um pedido SET ao agente SNMP do SC para manipular instâncias específicas, nomeadamente o objeto roadRTG de uma via (injetando tráfego no sistema) ou os parâmetros algorítmicos (algoMinGreenTime, algoMaxGreenTime).
 
@@ -85,7 +85,7 @@ Por uma questão de simplificação e eficiência, o Sistema de Simulação do F
 - **Interação SSFR ↔ MIB**: 
      - *Leitura*: A cada ciclo de simulação, o SSFR consulta os valores de roadRTG, a cor atual dos semáforos (roadTLColor), as vias de destino disponíveis e a lotação das mesmas para determinar se o escoamento é possível.
 
-     - *Escrita*: O SSFR calcula o movimento dos veículos e atualiza adequadamente os valores das instâncias `roadVehicleCount` nas vias de origem (subtraindo veículos) e nas vias de destino (adicionando veículos). Atualiza também os contadores `roadTotalCarsPassed`, `roadAvgWaitTime`, `totalVehiclesEntered`, `totalVehiclesExited` e `linkCarsPassed`.
+     - *Escrita*: O SSFR calcula o movimento dos veículos e atualiza adequadamente os valores das instâncias `roadVehicleCount` nas vias de origem (subtraindo veículos) e nas vias de destino (adicionando veículos). Atualiza também os contadores `roadTotalPassedCars`, `roadAvgWaitTime`, `totalEnteredVehicles`, `totalExitedVehicles` e `linkPassedCars`.
 
 - **Interação SD ↔ MIB**: 
   - *Leitura*: O SD acede aos dados presentes na MIB (nomeadamente a carga de tráfego, representada por roadVehicleCount) e aos parâmetros algorítmicos (algoMinGreenTime, algoMaxGreenTime) para alimentar a sua heurística de cálculo.
