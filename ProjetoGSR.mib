@@ -50,12 +50,22 @@ TrafficColor ::= TEXTUAL-CONVENTION
 CrossroadMode ::= TEXTUAL-CONVENTION
     STATUS      current
     DESCRIPTION "Modo operacional de um cruzamento."
-    SYNTAX      INTEGER { normal(1), flashingYellow(2), allRed(3) }
+    SYNTAX      INTEGER { normal(1) }
 
 LinkState ::= TEXTUAL-CONVENTION
     STATUS      current
     DESCRIPTION "Estado de ativacao de uma ligacao entre vias."
     SYNTAX      INTEGER { active(1), inactive(2) }
+
+TrafficAlgorithm ::= TEXTUAL-CONVENTION
+    STATUS      current
+    DESCRIPTION "O algoritmo de controlo de trafego atualmente em uso."
+    SYNTAX      INTEGER { 
+                    roundRobin(1), 
+                    heuristic(2), 
+                    backpressure(3), 
+                    reinforcementLearning(4) 
+                }
 
 -- =======================================================================
 -- Top-level structure
@@ -146,6 +156,13 @@ algoYellowTime OBJECT-TYPE
     STATUS      current
     DESCRIPTION "Tempo fixo de amarelo utilizado pelo sistema de decisao."
     ::= { trafficGeneral 10 }
+
+currentAlgorithm OBJECT-TYPE
+    SYNTAX      TrafficAlgorithm
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION "Define o algoritmo ativo no momento para o sistema de gestao de trafego."
+    ::= { trafficGeneral 11 }
 
 -- =======================================================================
 -- crossroadTable (2)
@@ -304,20 +321,13 @@ roadTLGreenDuration OBJECT-TYPE
     DESCRIPTION "Duracao do tempo de 'verde' calculada para este semaforo."
     ::= { roadEntry 12 }
 
-roadTLRedDuration OBJECT-TYPE
-    SYNTAX      Integer32 (1..3600)
-    UNITS       "seconds"
-    MAX-ACCESS  read-only
-    STATUS      current
-    DESCRIPTION "Duracao do tempo de 'vermelho' calculada para este semaforo."
-    ::= { roadEntry 13 }
 
 roadRowStatus OBJECT-TYPE
     SYNTAX      RowStatus
     MAX-ACCESS  read-create
     STATUS      current
     DESCRIPTION "Controlo para a criacao, modificacao e eliminacao de linhas nesta tabela."
-    ::= { roadEntry 14 }
+    ::= { roadEntry 13 }
 
 
 -- =======================================================================

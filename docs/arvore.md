@@ -19,13 +19,14 @@ iso(1).org(3).dod(6).internet(1).experimental(3)
            |    +-- algoMinGreenTime (8) ....... [RW] Integer32           // limite minimo do verde no algoritmo SD
            |    +-- algoMaxGreenTime (9) ....... [RW] Integer32           // limite maximo do verde no algoritmo SD
            |    +-- algoYellowTime (10) ........ [RO] Integer32           // tempo fixo de amarelo usado pelo SD
+           |    +-- currentAlgorithm(11)
            |                                                              
            +-- crossroadTable (2)                                         // tabela dos cruzamentos da rede
            |    |                                                         
            |    +-- crossroadEntry (1) [INDEX: crossroadIndex]            // linha de cruzamento identificada por indice unico
-           |         |                                                    
+           |         |                                                    //% erro td flashing(++) ou td red(pouco interesse)
            |         +-- crossroadIndex (1) ...... [NA] Integer32         // chave interna do cruzamento
-           |         +-- crossroadMode (2) ....... [RW] CrossroadMode     // modo de operacao (normal/allRed/flashing)
+           |         +-- crossroadMode (2) ....... [RW] CrossroadMode     // modo de operacao (normal)
            |         +-- crossroadRowStatus (3) .. [RC] RowStatus         // criacao/ativacao/remocao da linha
            |                                                              
            +-- roadTable (3)                                              // tabela principal de vias (inclui dados do semaforo)
@@ -44,8 +45,7 @@ iso(1).org(3).dod(6).internet(1).experimental(3)
            |         +-- roadTLColor (10) ........ [RO] TrafficColor      // cor atual do semaforo da via
            |         +-- roadTLTimeRemaining (11). [RO] Integer32         // segundos restantes para trocar a cor
            |         +-- roadTLGreenDuration (12). [RO] Integer32         // duracao do verde atribuida pelo SD
-           |         +-- roadTLRedDuration (13) .. [RO] Integer32         // duracao do vermelho atribuida pelo SD
-           |         +-- roadRowStatus (14) ...... [RC] RowStatus         // criacao/ativacao/remocao da linha da via
+           |         +-- roadRowStatus (13) ...... [RC] RowStatus         // criacao/ativacao/remocao da linha da via
            |                                                              
            +-- roadLinkTable (5)                                          // tabela de ligacoes direcionadas entre vias
                 |                                                         
@@ -90,6 +90,6 @@ Por uma questão de simplificação e eficiência, o Sistema de Simulação do F
 - **Interação SD ↔ MIB**: 
   - *Leitura*: O SD acede aos dados presentes na MIB (nomeadamente a carga de tráfego, representada por roadVehicleCount) e aos parâmetros algorítmicos (algoMinGreenTime, algoMaxGreenTime) para alimentar a sua heurística de cálculo.
 
-     - *Escrita*: O SD atualiza as instâncias roadTLColor (estado da cor), roadTLTimeRemaining, roadTLGreenDuration e roadTLRedDuration para cada um dos semáforos do sistema, operando sempre em intervalos temporais múltiplos do passo da simulação do SSFR.
+     - *Escrita*: O SD atualiza as instâncias roadTLColor (estado da cor), roadTLTimeRemaining, roadTLGreenDuration para cada um dos semáforos do sistema, operando sempre em intervalos temporais múltiplos do passo da simulação do SSFR.
 
 
