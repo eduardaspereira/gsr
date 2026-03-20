@@ -1,0 +1,63 @@
+{
+  "trafficGeneral": {
+    "simStepDuration": 5,
+    "algoYellowTime": 3,
+    "algoMinGreenTime": 15,
+    "algoMaxGreenTime": 60,
+    "currentAlgorithm": 1
+  },
+  
+  "crossroads": [
+    {
+      "crossroadIndex": 1,
+      "crossroadMode": 1
+    }
+  ],
+
+  "roads": [
+    {
+      "roadIndex": 1,
+      "roadName": "Avenida Principal (Entrada)",
+      "roadType": 3, 
+      "roadRTG": 30,
+      "roadMaxCapacity": 100,
+      "roadVehicleCount": 20, 
+      "roadCrossroadID": 1
+    },
+    {
+      "roadIndex": 2,
+      "roadName": "Rua Secundária (Entrada)",
+      "roadType": 3,
+      "roadRTG": 10,
+      "roadMaxCapacity": 50,
+      "roadVehicleCount": 5,
+      "roadCrossroadID": 1
+    },
+    {
+      "roadIndex": 3,
+      "roadName": "Estrada Nacional (Saída/Sink)",
+      "roadType": 2,
+      "roadRTG": 0,
+      "roadMaxCapacity": 200,
+      "roadVehicleCount": 0,
+      "roadCrossroadID": 0 
+    }
+  ],
+
+  "roadLinks": [
+    {
+      "linkIndex": 1,
+      "linkSourceIndex": 1,
+      "linkDestIndex": 3,
+      "linkFlowRate": 20,
+      "linkActive": 1
+    },
+    {
+      "linkIndex": 2,
+      "linkSourceIndex": 2,
+      "linkDestIndex": 3,
+      "linkFlowRate": 10,
+      "linkActive": 1
+    }
+  ]
+}
