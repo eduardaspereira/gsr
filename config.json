@@ -17,7 +17,7 @@
   "roads": [
     {
       "roadIndex": 1,
-      "roadName": "AVenida Principal (Entrada)",
+      "roadName": "Avenida Principal (Entrada)",
       "roadType": 3, 
       "roadRTG": 30,
       "roadMaxCapacity": 100,
