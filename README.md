@@ -1,133 +1,344 @@
-# Projeto GSR - Sistema de Gestão de Tráfego Rodoviário (Fase A)
-Este projeto implementa um sistema de gestão de tráfego rodoviário baseado na arquitetura Internet-standard Network Management Framework (INMF). Utiliza o protocolo SNMPv2c para monitorizar e controlar o fluxo de veículos em tempo quase-real, visando a minimização dos tempos médios de espera.
-## Funcionalidades Principais
-- **Arquitetura de Componentes**: Divisão clara entre Sistema Central (Agente), Simulador, Decisor e Consolas (Gestores).
+# Sistema Central de Gestão de Tráfego Rodoviário - Guia de Início Rápido
 
-- **Modelo de Informação SMIv2**: Implementação de uma MIB experimental estruturada em tabelas (roadTable e roadLinkTable) para representar a rede como um grafo.
+## 📦 Estrutura do Projeto
 
-- **Controlo Inteligente (SD)**: Algoritmo que utiliza heurísticas de pressão e a funcionalidade de "Onda Verde" para antecipar pelotões de veículos.
+```
+src/
+├── __init__.py              # Pacote Python
+├── central_system.py        # Orquestrador principal (entry point)
+├── config_parser.py         # Parser e validador de config.json
+├── mib_objects.py           # Estrutura da MIB em memória
+├── snmp_server.py           # Servidor SNMP SNMPv2c
+├── snmp_client.py           # Cliente SNMP (para testes)
+├── ssfr.py                  # 🚗 Simulador de Fluxo Rodoviário
+└── decision_system.py       # 🚦 Controlo de Semáforos
 
-- **Simulação Realista (SSFR)**: Passos de 5 segundos que processam o movimento físico, escoamento para sumidouros e gestão de capacidade das vias.
+config.json                 # Configuração da rede
+requirements.txt           # Dependências Python
+venv/                      # Ambiente virtual Python
+quick_test.py              # Script de teste rápido
+test_simulation.py         # Script de teste detalhado
+```
 
-- **Monitorização Multi-Consola**: Inclui uma consola de gestão tabular e uma interface gráfica em ASCII com cores ANSI.
+## 🚀 Quickstart
 
-## Estrutura do Sistema 
-**Sistema Central (SC)**:
-- Atua como o Agente SNMPv2c (Porta 1161).
-- Gere a instrumentação dinâmica da MIB baseada no ficheiro config.json.
-- Sincroniza em tempo real os dados da simulação com os objetos SNMP (ex: roadVehicleCount, roadLightColor). 
-
-**Sistema de Simulação (SSFR)**: 
-- Simula a entrada de veículos via Ritmo Gerador de Tráfego (RGT).
-- Calcula estatísticas de performance, como o tempo médio de espera por via.
-- Gere o escoamento para fora da rede (vias sumidouro) e a ocupação máxima das vias para evitar bloqueios físicos.
-
-**Sistema de Decisão (SD)**:
-- Heurística de Pressão: Prioriza eixos com maior acumulação de veículos.
-- Onda Verde: Analisa os cruzamentos adjacentes; se um pelotão está a chegar a verde de uma via anterior, o SD aumenta a "pressão virtual" para abrir o próximo sinal antecipadamente.
-- Prevenção de Deadlock: O sinal não abre se a via de destino estiver com ocupação superior a 90%.
-- Segurança: Garante exclusão mútua total e respeita o tempo de amarelo fixo.
-
-**Consola de Monitorização e Controlo (CMC)**:
-- Descoberta Dinâmica: Utiliza GETNEXT (SNMP Walk) para descobrir automaticamente os IDs das vias ativas sem configuração prévia.
-- Controlo Ativo: Permite ao administrador alterar os RGTs via comandos SET SNMP.
-- Visualização ANSI: O mapa gráfico ilustra a topologia e o estado dos semáforos em tempo real usando blocos de cores.
-
-
-## Compilar MIB
-Antes da primeira execução, é obrigatório compilar o ficheiro de texto da MIB (ProjetoGSR.mib) para um formato Python que o agente consiga ler:  
+### 1. Setup Inicial (primeira vez)
 ```bash
-mibdump --mib-source=file:///usr/share/snmp/mibs --mib-source=https://mibs.pysnmp.com/asn1/@mib@ --mib-source=file://. --destination-directory=. --destination-format=pysnmp ProjetoGSR.mib
+# Criar ambiente virtual
+python3 -m venv venv
+
+# Ativar ambiente
+source venv/bin/activate
+
+# Instalar dependências
+pip install -r requirements.txt
 ```
 
-## Demonstração
-Terminal 1 (O Servidor): Inicia o Sistema Central para carregar o mapa do config.json e ficar à escuta na porta 1161.  
-```Bash
-python3 sc_agent.py
-```
-
-Terminal 2 (A Tabela / Controlo): Inicia a CMC para desenhar uma tabela com as 8 vias e ficar à espera dos teus comandos.
-```Bash
-python3 cmc_manager.py
-```
-
-Terminal 3 (O Mapa Gráfico): Inicia o visualizador ASCII para ver o cruzamento em tempo real.
-```Bash
-python3 cmc_grafica.py
-```
-
-## Comandos a Usar dentro da CMC (Terminal 2)
-Pode-se alterar o ritmo a que os carros entram na rede (RGT) a qualquer momento usando a sintaxe set <ID_DA_VIA> <NOVO_RGT>.
- - Exemplo para simular a hora de ponta a Norte (Via 1 com 60 carros/min): set 1 60  
- - Exemplo para cortar o trânsito a Este (Via 3): set 3 0  
-
-## Teste de Conformidade SNMP 
-Para provar que o  Agente responde a ferramentas standard de mercado, corre um SNMP Walk completo à nossa árvore de gestão:
+### 2. Executar Simulação
 ```bash
-snmpwalk -v2c -c public 127.0.0.1:1161 1.3.6.1.4.1.9999
+# Ativar venv se necessário
+source venv/bin/activate
+
+# Opção A: Teste rápido (30 segundos)
+python3 quick_test.py
+
+# Opção B: Sistema completo com SNMP (Ctrl+C para parar)
+python3 -m src.central_system -H 127.0.0.1 -p 10161
+
+# Opção C: Teste detalhado com estatísticas
+python3 test_simulation.py
 ```
 
-### Explicação Teste de Conformidade SNMP 
-#### Ritmo Gerador de Tráfego
-Vias 1,2,3,4 tem os valores exatos do JSON  
-Vias 5,6,7,8 são sumidouros e por isso têm valor 0  
+### 3. Testar com snmpget (se instalado)
+```bash
+# Terminal diferente
+snmpget -v2c -c public 127.0.0.1:10161 1.3.6.1.3.2026.1.1.4
+```
+
+## 📋 O Que Está Implementado
+
+### ✅ Fase A - Especificação (Completa)
+- [x] Requisitos funcionais detalhados
+- [x] Modelo de informação (MIB)
+- [x] Investigação de algoritmos
+- [x] Mapa de rede rodoviária
+
+### ✅ Fase B - Implementação (Em Progresso)
+
+#### Componente 1: Sistema Central (SC)
+- [x] Parser JSON com validação robusta
+- [x] MIB em memória com thread-safety
+- [x] Servidor SNMP SNMPv2c básico
+- [x] Orquestrador integrado
+
+#### Componente 2: SSFR (Simulação Fluxo)
+- [x] Injeção de veículos respeitando RGT
+- [x] Movimento entre vias respeitando semáforos
+- [x] Cálculo de tempos de espera
+- [x] Contadores e métricas
+- [x] Thread de simulação a 5 segundos configuráveis
+
+#### Componente 3: SD (Decisão de Semáforos)
+- [x] Algoritmo FixedCycle (baseline)
+- [x] Algoritmo OccupancyHeuristic
+- [x] Algoritmo BackpressureControl
+- [x] Thread independente de decisões
+- [x] Possibilidade de trocar algoritmo em runtime
+
+#### Componente 4: CMC (Consola)
+- [ ] Cliente SNMP funcional
+- [ ] Interface interativa
+- [ ] Comandos de controlo (set RGT, mudar algoritmo)
+
+---
+
+## 🧪 Output do Teste Rápido
+
+```
+======================================================================
+TESTE RÁPIDO: SSFR + DecisionSystem
+======================================================================
+
+Iniciado. Coletando dados por 30 segundos...
+
+----------------------------------------------------------------------
+T= 15s | Veículos= 2 | Entrada= 6 | Saída= 4 | Espera med=  5.0s
+T= 20s | Veículos= 0 | Entrada= 8 | Saída= 8 | Espera med=  0.0s
+T= 30s | Veículos= 0 | Entrada=12 | Saída=12 | Espera med=  0.0s
+----------------------------------------------------------------------
+
+✓ Teste concluído com sucesso!
+======================================================================
+```
+
+---
+
+## 📋 Configuração (config.json)
+
+```json
+{
+  "trafficGeneral": {
+    "simStepDuration": 5,           // Passo de simulação (segundos)
+    "algoYellowTime": 3,            // Tempo fixo de amarelo
+    "algoMinGreenTime": 15,         // Verde mínimo
+    "algoMaxGreenTime": 60,         // Verde máximo
+    "currentAlgorithm": 1           // 1=FixedCycle, 2=Occupancy, 3=Backpressure
+  },
+  "crossroads": [
+    { "crossroadIndex": 1, "crossroadMode": 1 }
+  ],
+  "roads": [
+    {
+      "roadIndex": 1,
+      "roadName": "Avenida Principal (Entrada)",
+      "roadType": 3,                // 1=Normal, 2=Sink, 3=Source
+      "roadRTG": 30,                // Ritmo Gerador (veículos/minuto)
+      "roadMaxCapacity": 100,
+      "roadVehicleCount": 20,
+      "roadCrossroadID": 1
+    }
+  ],
+  "roadLinks": [
+    {
+      "linkIndex": 1,
+      "linkSourceIndex": 1,
+      "linkDestIndex": 3
+    }
+  ]
+}
+```
+
+---
+
+## 🏗️ Arquitetura
+
+```
+┌─────────────────────────────────────────────────┐
+│      Sistema Central de Gestão de Tráfego      │
+└─────────────────────────────────────────────────┘
+                     │
+      ┌──────────────┼──────────────┐
+      │              │              │
+  ┌─────┐        ┌─────────┐    ┌────────┐
+  │ MIB │        │ SNMP    │    │  SSFR  │
+  │     │        │ Server  │    │        │
+  └─────┘        └─────────┘    └────────┘
+      │              │              │
+      └──────────────┼──────────────┘
+                     │
+              Thread-Safe
+             (RLock MIB)
+                     │
+      ┌──────────────┴──────────────┐
+      │                             │
+  ┌───────────┐          ┌──────────────┐
+  │    CMC    │          │ DecisionSystem
+  │ (Futuro)  │          │  (Algoritmos)
+  └───────────┘          └──────────────┘
+       │                        │
+       └────────────┬───────────┘
+                    │
+           Controlo de Semáforos
+           e Simulação de Tráfego
+```
+
+---
+
+## 📝 MIB (OIDs disponíveis)
+
+### trafficGeneral (1.3.6.1.3.2026.1.1.X)
+```
+.1  simStatus                (RW)  Estado: stopped(1), running(2), paused(3)
+.2  simStepDuration          (RW)  Duração do passo (segundos)
+.3  simElapsedSeconds        (RO)  Tempo total decorrido
+.4  globalVehicleCount       (RO)  Total de veículos na rede
+.5  globalAvgWaitTime        (RO)  Tempo médio de espera global
+.6  totalEnteredVehicles     (RO)  Total acumulado de entradas
+.7  totalExitedVehicles      (RO)  Total acumulado de saídas
+.8  algoMinGreenTime         (RW)  Verde mínimo (segundos)
+.9  algoMaxGreenTime         (RW)  Verde máximo (segundos)
+.10 algoYellowTime           (RO)  Amarelo (segundos)
+.11 currentAlgorithm         (RW)  Algoritmo: 1=Fixed, 2=Occupancy, 3=Backpressure
+```
+
+### roadTable (1.3.6.1.3.2026.1.3.X)
+```
+[roadIndex]
+├── .2 roadName              (RC)  Nome legível
+├── .3 roadType              (RC)  Tipo: normal(1), sink(2), source(3)
+├── .4 roadRTG               (RW)  Ritmo Gerador (veíc/min)
+├── .5 roadMaxCapacity       (RC)  Capacidade máxima
+├── .6 roadVehicleCount      (RO)  Veículos atualmente
+├── .7 roadTotalPassedCars   (RO)  Total passed (acumulado)
+├── .8 roadAvgWaitTime       (RO)  Tempo médio espera
+├── .10 roadTLColor          (RO)  Semáforo: red(1), yellow(2), green(3)
+├── .11 roadTLTimeRemaining  (RO)  Segundos até mudar cor
+└── .12 roadTLGreenDuration  (RO)  Duração do verde atribuído
+```
+
+---
+
+## 🎯 Algoritmos Disponíveis
+
+### 1. FixedCycle (currentAlgorithm=1)
+- Semáforos alternam com tempos fixos
+- Baseline: ignora tráfego real
+- Determinístico e simples para testes
+
+### 2. OccupancyHeuristic (currentAlgorithm=2)
+- Tempo GREEN proporcional ao número de veículos
+- Mais responsivo que FixedCycle
+- Risco: "starvation" em vias com pouco tráfego
+
+### 3. BackpressureControl (currentAlgorithm=3)
+- Verifica espaço em vias destino
+- Se destino cheio → RED (evita backup)
+- Melhor: Evita efeito dominó de congestionamento
+- Recomendado para redes balanceadas
+
+---
+
+## 🧪 Testes Incluídos
+
+### `quick_test.py` - Teste Rápido
+```bash
+python3 quick_test.py
+# Simula 30 segundos, mostra estatísticas a cada 10s
+```
+
+### `test_simulation.py` - Teste Detalhado
+```bash
+python3 test_simulation.py
+# Simula com output detalhado, status cada 5s
+```
+
+### Testes Manuais
+```bash
+# Iniciar servidor e deixar rodando
+python3 -m src.central_system -H 127.0.0.1 -p 10161
+
+# Em outro terminal, testar com snmpget
+snmpget -v2c -c public 127.0.0.1:10161 1.3.6.1.3.2026.1.1.4
+```
+
+---
+
+## 📦 Dependências
+
+- **pysnmp**: 7.1.22 - Cliente/servidor SNMP
+- **pyasn1**: 0.4.8 - Codificação ASN.1
 
 ```bash
-iso.3.6.1.4.1.9999.1.1.2.1.4.1.0 = Gauge32: 15
-                           4.2.0 = Gauge32: 12
-                           4.3.0 = Gauge32: 10
-                           4.4.0 = Gauge32: 18
-                           4.5.0 = Gauge32: 0
-                           4.6.0 = Gauge32: 0
-                           4.7.0 = Gauge32: 0
-                           4.8.0 = Gauge32: 0
+# Instalar
+pip install -r requirements.txt
 ```
 
-#### Contagem veículos em cada via
+---
+
+## 🐛 Troubleshooting
+
+### "ModuleNotFoundError: No module named 'src'"
 ```bash
-                           6.1.0 = Gauge32: 6
-                           6.2.0 = Gauge32: 1
-                           6.3.0 = Gauge32: 16
-                           6.4.0 = Gauge32: 23
-                           6.5.0 = Gauge32: 2
-                           6.6.0 = Gauge32: 2
-                           6.7.0 = Gauge32: 3
-                           6.8.0 = Gauge32: 3
+cd /home/goncalo/gsr/gsr
+source venv/bin/activate
+python3 quick_test.py
 ```
 
-#### Cor dos Semáforos
-1 -- Vermelho  
-2 -- Verde  
-
+### "Address already in use"
 ```bash
-                           7.1.0 = INTEGER: 2
-                           7.2.0 = INTEGER: 2
-                           7.3.0 = INTEGER: 1
-                           7.4.0 = INTEGER: 1
-                           7.5.0 = INTEGER: 2
-                           7.6.0 = INTEGER: 2
-                           7.7.0 = INTEGER: 2
-                           7.8.0 = INTEGER: 2
+# Mudar porta
+python3 -m src.central_system -p 10162
+
+# Ou matar processo anterior
+lsof -i :10161
+kill -9 <PID>
 ```
 
-## Explicação dos Resultados
-Ao alterar o RGT (ex: injetando muitos carros na Via 1), vai-se observar o seguinte comportamento dinâmico:  
-1. **Acumulação**: No Terminal 3 (Mapa), vê-se o número de carros a subir rapidamente na Via Norte.  
-
-2. **Reação do SD**: O Sistema de Decisão vai detetar o desequilíbrio. Vai fechar os semáforos que estavam abertos (passando primeiro por Amarelo), e vai dar luz Verde (██) ao Eixo Norte-Sul.  
-
-3. **Escoamento**: Os carros vão começar a subtrair da entrada Norte e a aparecer nas vias de Saída (Sumidouros, que têm o ID 5, 6, 7 e 8).  
-
-4. **Segurança**: O Eixo transversal (Este-Oeste) fica bloqueado a Vermelho durante este processo, garantindo que não há colisões e simulando o comportamento real de um cruzamento. 
-
-## Testes de Validação
-O projeto inclui uma bateria de 12 testes unitários e de integração que validam:
-- Exclusão mútua e segurança.
-- Prevenção de deadlocks com destinos lotados.
-- Precisão matemática da injeção de veículos.
-- Lógica de antecipação (Onda Verde).
-- Escoamento em sumidouros.
-
+### "Config file not found"
 ```bash
-python3 Tests.py
+# config.json deve estar no diretório de trabalho
+cd /home/goncalo/gsr/gsr
+python3 quick_test.py
 ```
+
+### Veículos não se movem
+```
+Verificar:
+1. Semáforo está GREEN? (Check roadTLColor)
+2. Há espaço na via destino? (Check roadVehicleCount < capacity)
+3. Há ligações? (Check roadLinks na config)
+```
+
+---
+
+## 📚 Referências
+
+- [RFC 1157 - SNMP](https://tools.ietf.org/html/rfc1157) 
+- [RFC 1441 - SNMPv3](https://tools.ietf.org/html/rfc1441)
+- [pysnmp Documentation](https://pysnmp.readthedocs.io/)
+
+---
+
+## 🗺️ Próximas Etapas
+
+### CMC (Consola de Monitorização)
+- [ ] Completar SNMP client com GET/SET
+- [ ] Interface interativa
+- [ ] Tabelas formatadas
+- [ ] Comandos (monitor, set, algo, status)
+
+### Otimizações
+- [ ] Usar deque em vez de list para veículos
+- [ ] Cache OID mappings
+- [ ] Batch updates na MIB
+
+### Testes Extensivos
+- [ ] Cenários de congestionamento
+- [ ] Comparação de algoritmos
+- [ ] Stress test (1000+ veículos)
+
+---
+
+**Última actualização**: 20 Março 2026  
+**Status**: Fase B - Simulação Funcional ✅, Próximo: CMC  
+**Versão**: 0.2.0
