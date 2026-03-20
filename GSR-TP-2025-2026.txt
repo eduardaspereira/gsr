@@ -1,0 +1,432 @@
+Universidade do Minho - Dep.to Informática
+2º Semestre, 2025/2026
+
+Mestrado em Engenharia Informática
+GESTÃO E SEGURANÇA DE REDES
+
+Ficha de Trabalho Prático
+Sistema de Gestão de Tráfego Rodoviário
+Objetivo Principal:
+ Consolidação dos conhecimentos sobre os protocolos, mecanismos e filosofias da arquitetura
+de gestão Internet-standard Network Management Framework (INMF), dando especial relevo
+aos aspetos de interação protocolar, concetualização de objetos de gestão e especificação
+de MIB.
+Observações:
+ O trabalho deverá ser realizado ao longo de 70 a 80 horas efetivas de trabalho em grupos de
+até três alunos.
+Requisitos Recomendáveis:
+ Acesso a sistema com, pelo menos, um pacote freeware instalado com suporte a SNMP (versão
+2, no mínimo): Net-SNMP, CMU-SNMP, SCOTTY, etc.
+ Utilização de APIs de programação que facilitem a implementação de primitivas SNMPv2c
+ou SNMPv1.
+AVISOS:
+ Não serão tolerados atropelos aos direitos de autor de qualquer tipo de software...
+
+Bibliografia genérica e material de apoio
+Material de apoio:
+ Manuais/Tutoriais do net-snmp;
+ MIBs em /usr/share/snmp/mibs (ou diretoria equivalente da instalação);
+ Recurso http://net-snmp.sourceforge.net/wiki/index.php/Tutorials/;
+ Recurso http://www.simpleweb.org/;
+ Recurso http://www.snmplinks.org/.
+Bibliografia:
+ G. Nogueira, Arquitetura Integradora com SNMP para Gestão de Edifícios, Universidade do
+Minho, 2023.
+ M. Rose, The Simple Book, Second Edition, Prentice Hall, 1996.
+ B. Dias, Gestão de Redes, PAPCC, Universidade do Minho, 1996.
+ W. Stallings, SNMP, SNMPv2, SNMPv3, and RMON 1 and 2, Addison-Wesley, 2000.
+ D. Mauro, K. Schmidt, Essential SNMP, O’Reilly, 2001.
+ Ver outros recursos na área de “Conteúdo” no BB da UC e no material fornecido no início do
+semestre.
+
+UM – DI, Gestão e Segurança de Redes
+
+Ano Letivo 2025/2026, 2º Semestre
+
+Requisitos funcionais
+O objetivo genérico do trabalho é o desenvolvimento de um sistema de gestão de tráfego rodoviário
+utilizando uma arquitetura de componentes e um modelo de informação baseado em SNMP.
+Em termos funcionais pretende-se que o sistema consiga gerir o fluxo de tráfego duma zona urbana,
+minimizando, indiretamente, o tempo total de viagem entre destino e origem. Este objetivo deve ser
+conseguido através da minimização dos tempos médios de espera de cada veículo em cada um dos
+semáforos. Este objetivo deve ser atingido duma forma geral para todos os veículos, i.e., interessa
+minimizar os tempos de espera nos semáforos ao longo do tempo para o grupo de todos os veículos que
+por eles circulam, tendo em consideração as condições de tráfego dum ponto de vista global (em toda a
+zona gerida, que pode ser, um bairro, uma zona urbana, uma cidade ou até uma região metropolitana
+mais alargada). Não é relevante minimizar o tempo de espera para um veículo em particular, mesmo que
+esse veículo seja um veículo de emergência.
+Em sistemas realistas seria de esperar uma arquitetura do sistema relativamente distribuída, com gestão
+do fluxo de tráfego a médio e longo prazo (desde alguns minutos até várias horas) feita em diversos
+níveis hierárquicos, por zonas de afetação com possível definição de prioridades relativas. Esta divisão
+por zonas pode ter em consideração a topologia do mapa urbano, as funções sociais, comerciais ou
+privadas predominantes em cada zona e a forma de interconexão entre zonas. Neste projeto pretende-se
+implementar um sistema simplificado, centralizado numa única zona com um protótipo a funcionar sobre
+um mapa duma área relativamente pequena (um conjunto de ruas, o centro de uma cidade, uma pequena
+vila, etc.).
+O sistema é composto por quatro componentes:
+
+
+Um sistema central (SC) que gere/mantem toda a informação relevante, desde os dados
+geográficos relevantes de cada via rodoviária (considerados dados fixos após arranque do
+sistema) até à informação sobre o fluxo rodoviário em determinado momento (dados que devem
+ir sendo atualizados e que representam o estado do fluxo rodoviário em – quase – tempo real). A
+base de dados relevante para este sistema central deve ser implementada numa MIB experimental
+utilizando um modelo de informação especificado em SMIv2. O acesso e a manipulação externa
+da informação desta MIB só podem ser feitos através do protocolo SNMPv2c, ou seja, o SC deve
+implementar um servidor SNMP sem preocupações de segurança (autenticação,
+confidencialidade, verificação de integridade dos dados, etc.).
+
+
+
+Um sistema de simulação do fluxo rodoviário (SSFR) que deve, quando um semáforo está “verde”
+ou “amarelo”, ir simulando o atravessamento do semáforo e a passagem dos veículos duma via
+para a(s) via(s) seguinte(s). Cada atravessamento deve ser feito a um ritmo de X veículos/minuto,
+sempre que haja espaço para os veículos na via seguinte escolhida. Quando uma via de destino
+fica completamente lotada deixa de ser possível o atravessamento de veículos para essa via em
+qualquer semáforo que tenha como destino essa via. O ritmo a que os veículos podem atravessar
+em condições de trânsito normal deve estar definido como um parâmetro na MIB do SC. Por
+uma questão de simplificação, este ritmo é fixo e definido na configuração inicial do SC. Quando
+um semáforo numa via permite a ligação a mais do que uma via de destino a configuração inicial
+na MIB do SC deve contemplar a definição do ritmo para cada via destino. Nestas situações de
+múltiplas vias de destino, a definição destes ritmos controla a percentagem de tráfego que cada
+via destino vai acomodar. O SSFR deve ir atualizando adequadamente os valores das instâncias
+dos objetos da MIB do SC tendo em consideração o número de veículos na via de origem, o
+número de veículos nas vias de destino, a cor do semáforo da via de origem e os ritmos de
+atravessamento para cada via de destino. Para permitir uma simulação prolongada no tempo e
+uma representação mais realista de redes rodoviárias, o SSFR deve também poder gerar fluxos
+
+Trabalho Prático – Sistema de Gestão de Tráfego Rodoviário
+
+2
+
+UM – DI, Gestão e Segurança de Redes
+
+Ano Letivo 2025/2026, 2º Semestre
+
+de veículos que têm origem em vias sem semáforos e que desaguam numa via com um semáforo.
+Isto permite a entrada contínua de veículos no fluxo rodoviário do sistema simulado a um
+determinado ritmo gerador de tráfego (RGT). Todos os RGT são fixados inicialmente na
+configuração de arranque do SC e devem ser mantidos na sua MIB. No entanto, devem poder ser
+alterados externamente por um sistema gestor através do protocolo SNMPv2c. Adicionalmente,
+também deve ser possível definir uma via sem vias destinos, apenas com um semáforo no final
+que permite o escoamento de todos os veículos que lá chegam para fora da rede rodoviária
+simulada ao único ritmo fixo definido para esse semáforo. Por uma questão de simplificação, o
+SSFR deve ser implementado como um componente dentro do próprio SC, permitindo-se assim
+o acesso e a manipulação direta dos objetos necessários na MIB do SC sem ser necessário
+comunicação externa através de SNMP ou outro protocolo de comunicação Internet.
+
+
+Um sistema de decisão (SD) que deve, através da informação presente na MIB do SC, calcular
+o tempo individual de “verde” ou “vermelho” para cada um dos semáforos do sistema. Todos os
+semáforos podem ter tempos de cor diferentes entre si. O tempo de “amarelo” é fixo e, portanto,
+não deve ser considerado no algoritmo como um parâmetro a calcular. O SD, sempre que atualiza
+os tempos de cada cor de cada semáforo deve atualizar o estado da cor no objeto correspondente
+na MIB do SC. Por uma questão de simplificação, o SD deve ser implementado como um
+componente dentro do próprio SC, permitindo-se assim o acesso e a manipulação direta dos
+objetos necessários na MIB do SC sem ser necessário comunicação externa através de SNMP ou
+outro protocolo de comunicação Internet.
+
+
+
+Uma consola de monitorização e controlo (CMC) do sistema que deve permitir a um
+utilizador/administrador verificar o funcionamento do sistema em – quase – tempo real e alterar
+os valores dos RGT. Esta CMC deve ser implementada como um cliente/gestor SNMPv2c,
+acedendo ou manipulando os valores das instâncias conforme necessário. Na parte da
+monitorização, a CMC não precisa ser gráfica, podendo apenas mostrar e atualizar uma tabela
+dos valores das instâncias mais relevantes da MIB. Na parte da configuração/controlo, a CMC
+só necessita dum pequeno prompt que permita modificar os valores dos RGT.
+
+A secções seguintes apresentarão detalhes adicionais para alguns dos componentes do sistema.
+
+MIB do sistema central
+O SC tem de conter um agente SNMPv2c (versão sem segurança utilizando apenas nomes de
+comunidades para identificar grupos de utilizadores/agentes) e tem de implementar a instrumentação de
+uma MIB que permita acomodar os requisitos genéricos já enunciados. Além disso, a MIB deve conter
+objetos adequados que permitam implementar os seguintes requisitos funcionais específicos:
+
+
+A representação da rede rodoviária como um grafo em que cada nó representa um semáforo e
+cada ligação entre nós representa uma via do fluxo rodoviário com uma origem e um destino (um
+único sentido de tráfego) e que na origem e no destino está sempre um semáforo. Os semáforos
+controlam o fluxo de tráfego que entra e sai das vias.
+
+
+
+A passagem dos veículos por um semáforo, quando na cor “verde” e “amarela”, é distribuída
+pelas várias vias ligadas ao semáforo “do outro lado”, i.e., passam da via origem (que tem o
+semáforo como ponto final) para as vias destino ao ritmo definido para cada via destino. Estes
+ritmos são fixados na configuração inicial do sistema.
+
+
+
+Existe um caso especial de semáforo que permite o escoamento do tráfego para fora da rede
+rodoviária simulada ao ritmo que estiver definido inicialmente na configuração desse semáforo.
+
+Trabalho Prático – Sistema de Gestão de Tráfego Rodoviário
+
+3
+
+UM – DI, Gestão e Segurança de Redes
+
+Ano Letivo 2025/2026, 2º Semestre
+
+Opcionalmente, estes ritmos podem também ser alterados pelo administrador do sistema através
+da CMC durante a simulação.
+
+
+Pode ser definido mais um parâmetro (objeto) associado a uma via e é o ritmo de fluxo rodoviário
+de entrada (RTG) para dentro dessa via durante a simulação e que não tem origem em nenhum
+semáforo duma via de origem. O RTG deve poder ser alterado externamente pelo administrador
+através da CMC.
+
+
+
+Do ponto de vista do modelo de informação a adotar, o objeto principal será uma via
+(especificado como uma linha de entrada duma tabela na MIB do SC) a que terá associados os
+vários objetos necessários para implementar os requisitos enumerados, entre eles, uma
+identificação unívoca da via, um eventual RTG, os vários ritmos do semáforo no final da via
+(ritmos de distribuição pelas várias vias de destino), a lista das vias de destino a que se tem acesso
+depois de atravessar o semáforo, a cor do semáforo (para simplificação o semáforo tem apenas
+uma cor em simultâneo para todas vias destino), o tempo que falta para mudar de cor e o número
+de veículos que estão na via (a circular ou à espera para atravessar o semáforo, sendo que, na
+configuração inicial do sistema, este número pode ser diferente de zero), etc.
+
+
+
+Os dados implementados na instrumentação da MIB podem ser voláteis (o sistema reinicia-se
+sempre no mesmo estado após arranque e dependendo dum ficheiro de configuração que permita
+definir direta ou indiretamente os valores iniciais para as instâncias dos objetos da MIB).
+
+Sistema de simulação do fluxo rodoviário
+Na implementação do SSFR é aconselhável que cada ciclo de atualização seja feito considerando a
+passagem virtual dum determinado tempo de realidade (passo da simulação), por exemplo, 5 segundos.
+Este passo da simulação pode também definir o momento de atualização dos valores de todas as
+instâncias dos objetos da MIB, incluindo o resultado do cálculo do algoritmo de controlo inteligente
+implementado no SD, i.e., o SD só deve calcular novos valores para os tempos de cada cor do semáforo
+em intervalos temporais múltiplos do valor do passo da simulação.
+
+Sistema de decisão
+O componente que implementa o sistema de decisão para cálculo inteligente dos tempos de cada cor em
+cada um dos semáforos deve ser simples. Podem usar-se algoritmos bem conhecidos para este tipo de
+problema ou soluções que tenham por base teorias heurísticas simples e que possam ser refinadas através
+de algum trabalho de experimentação e teste usando o próprio protótipo construído. Em última análise,
+e opcionalmente, no SD podem até usar-se técnicas de inteligência artificial para tentar obter algoritmos
+mais autónomos ou automáticos.
+Como o SD deve estar integrado no próprio SC, se houver necessidade de definir parâmetros de
+configuração inicial estes devem ser incluídos no ficheiro de configuração único do SC. Este ficheiro
+deve usar uma sintaxe simples de entender e de fácil processamento. Deve incluir todos os dados da rede
+rodoviária definida e todos os valores iniciais de todos parâmetros necessários para o arranque e
+funcionamento correto do SSFR, do SD e da instrumentação da MIB do SC.
+
+Consola de monitorização e controlo
+O único interface de utilizador do sistema deve estar implementado na CMC numa forma simples e clara,
+tanto para a componente de monitorização contínua como para a componente de controlo/configuração
+a pedido.
+Trabalho Prático – Sistema de Gestão de Tráfego Rodoviário
+
+4
+
+UM – DI, Gestão e Segurança de Redes
+
+Ano Letivo 2025/2026, 2º Semestre
+
+Tanto no interface implementado na CMC como na comunicação SNMP entre a CMC e o SC não é
+necessário ter em consideração preocupações de segurança de qualquer tipo na Fase A. Deverão abordarse estas questões na Fase B, definindo-se inicialmente um conjunto de requisitos funcionais que
+aumentem a segurança comunicacional e comportamental do trabalho desenvolvido na Fase A,
+seguindo-se a sua implementação e teste.
+A progressão do desenvolvimento do projeto deve ser discutida frequentemente com os docentes da
+unidade curricular, havendo a recomendação da apresentação de documentos descritivos do trabalho
+desenvolvido como forma de tornar as discussões mais proveitosas.
+
+FASE A
+Segue-se uma lista meramente indicativa das tarefas da Fase A que o desenvolvimento do projeto pode
+ter (nas primeiras sete tarefas não é necessário conhecimento específico sobre arquiteturas e protocolos
+de gestão de redes):
+1. Definição duma lista de requisitos funcionais detalhados para cada componente e para o sistema
+como um todo com classificação adequada (básicos, essenciais, opcionais, etc.).
+2. Definição dum modelo de informação com todos os objetos necessários para ser possível
+acomodar os requisitos anteriores. Também deve ser definido o conjunto de todas as interações
+funcionais possíveis entre os componentes do sistema.
+3. Investigação e definição dum algoritmo inicial a aplicar no SD.
+4. Escolha/Definição do mapa da rede rodoviária a simular.
+5. Escolha das ferramentas e da linguagem de programação para implementação do protótipo,
+incluindo o servidor SNMP do SC e o gestor SNMP da CMC.
+6. Definição da sintaxe e semântica a usar no ficheiro de configuração do SC e da CMC.
+7. Definição teórica dum primeiro interface de utilizador simples a implementar na CMC.
+8. Especificação duma MIB que mapeie corretamente os objetos do modelo de informação definido
+anteriormente. Definição das interações SNMP necessárias para implementar as funcionalidades
+da CMC.
+9. Implementação da primeira versão do SC com a instrumentação de alguns objetos da MIB (sem
+componente SD e SSRF) e da primeira versão básica da CMC para testar a comunicação SNMP
+e para verificar a correta instrumentação da MIB no SC.
+10. Implementação e teste da instrumentação da MIB completa no SC.
+11. Implementação e teste do componente SSFR integrado no SC.
+12. Implementação e teste dum componente SD muito básico, integrado no SC.
+13. Melhorias finais na CMC.
+14. Melhorias finais no SD.
+Trabalho Prático – Sistema de Gestão de Tráfego Rodoviário
+
+5
+
+UM – DI, Gestão e Segurança de Redes
+
+Ano Letivo 2025/2026, 2º Semestre
+
+15. Escrita dum relatório da primeira fase (deve ir sendo construído logo deste o início do
+desenvolvimento do trabalho).
+16. Entrega do relatório e código da Fase A (a defesa do trabalho será marcada pelos docentes
+responsáveis pela avaliação).
+
+FASE B
+Nesta fase o trabalho deve ser melhorado tendo em consideração a implementação de algumas garantias
+de segurança na comunicação entre elementos do sistema e na forma de lidar com comportamentos
+estranhos por parte dos processos clientes.
+Assim, na Fase B do trabalho devem ser adicionadas funcionalidades que permitam garantir as seguintes
+recomendações de segurança comunicacional:
+
+
+Autenticação e controlo de autorizações no acesso e manipulação externos das instâncias dos
+objetos da MIB definida. As melhorias devem permitir autenticar individualmente os clientes
+que podem aceder ao servidor/agente SNMP e devem também poder definir que tipo de
+autorização têm no acesso às instâncias dos objetos (ou seja, que “view” de instâncias de objetos
+podem aceder e qual o tipo de autorização de acesso, i.e., “read” or “read&write”). Estas
+garantias devem ser implementadas utilizando tecnologias de criptografia simples com
+autenticação por meio de chaves privadas simétricas, com um par de chaves associado a cada par
+de entidades SC/CMC. Estas chaves podem ser configuradas no arranque de cada entidade
+através de ficheiros de configuração seguros (chaves encriptadas que só podem ser gravadas e
+acedidas através de outras chaves de acesso introduzidas manualmente no arranque do software).
+De notar que a funcionalidade de autenticação deve ser implícita, i.e., deve ser implementada
+através da troca confidencial dos valores das instâncias dos objetos nas mensagens SNMPv2c e
+só é válida no contexto de cada mensagem SNMP individual. Não é possível implementar a
+autenticação e controlo de autorizações através de sessões, uma vez que o SNMP é assíncrono e
+não confirmado. Opcionalmente pode ser implementado um sistema de autenticação de
+utilizadores do CMC, normalmente humanos, que definam diferentes tipos de acesso às
+funcionalidades do CMC. Aqui sim, pode ser implementado um sistema de autenticação e
+controlo de autorizações que dependa dum mecanismo local de sessão de acesso.
+
+
+
+Confidencialidade na troca de informação entre o SC e o CMC, ou seja, não deve ser possível
+ter acesso ao valor e/ou identificação das instâncias dos objetos que vão dentro das mensagens
+SNMPv2c por entidades que não sejam os SC e CMC que também são autenticados na mesma
+troca de informação.
+
+
+
+Opcionalmente, a verificação que o conteúdo das mensagens SNMPv2c não foi alterado entre a
+origem e o destino. Neste aspeto, a única verificação necessária é a verificação da parte do
+conteúdo que contém valores e/ou identificadores das instâncias dos objetos, não das mensagens
+SNMPv2c completas.
+
+
+
+Opcionalmente, a verificação de comportamentos desadequados por parte dos CMC em termos
+de pedidos aos SC. Por exemplo, quando um SC deteta um ritmo elevado, não seguro, de pedidos
+consecutivos deve parar de responder a todos os clientes durante um determinado tempo (ou
+suspender por completo o seu funcionamento e deixar num log as informações importantes).
+
+Aconselha-se a definição de objetos adicionais na MIB que ajudem na implementação destes
+mecanismos de autenticação uma vez que o próprio protocolo SNMPv2c, ao contrário da versão
+SNMPv3, não permite por si só qualquer implementação direta de mecanismos de segurança. Além disso,
+Trabalho Prático – Sistema de Gestão de Tráfego Rodoviário
+
+6
+
+UM – DI, Gestão e Segurança de Redes
+
+Ano Letivo 2025/2026, 2º Semestre
+
+sugere-se a definição da obrigatoriedade da inclusão de alguns identificadores de instâncias de objetos
+auxiliares que servem para implementar os requisitos de segurança em todas as mensagens SNMP
+dirigidas ao SC por forma a este poder responder em conformidade e enviar os valores das instâncias
+desses objetos. Outro mecanismo essencial é a encriptação de todos os valores das instâncias nas
+respostas do SC e nos pedidos SET dos CMC. Opcionalmente, como forma de aumentar a segurança,
+também se podem utilizar identificadores de instâncias de objetos indiretamente (enviados como valores
+encriptados de instâncias) e obrigar os CMC a utilizar sempre a primitiva SET em vez da primitiva GET.
+Isto permitiria que os valores dos identificadores das instâncias também pudessem ser confidenciais
+durante a troca de informação.
+Segue-se uma lista meramente indicativa das tarefas da Fase B que o desenvolvimento do projeto pode
+seguir:
+1. Redefinição da MIB criada na Fase A, adicionando-se objetos auxiliares que facilitem a
+implementação dos requisitos de segurança enunciados.
+2. Atualização e teste do SC com a instrumentação dos novos objetos da MIB necessários à
+implementação dos requisitos de segurança.
+3. Atualização e teste do CMC na manipulação dos valores das instâncias e dos seus identificadores
+para a criação e envio de mensagens SNMPv2c integrando os requisitos de segurança definidos.
+4. Testes finais da versão final do sistema completo.
+5. Atualização do relatório da Fase A por forma a integrar os trabalhos realizados na Fase B.
+6. Entrega do relatório e código da Fase B (a defesa final do trabalho será marcada pelos docentes
+responsáveis pela avaliação).
+
+Relatórios e outras recomendações
+O código dos protótipos pode ser desenvolvido numa linguagem de programação à escolha. Podem usarse APIs, funções ou excertos de código de terceiros para implementar aspetos tecnológicos, desde que
+devidamente referenciados. Em caso de dúvida consulte o docente para verificar a adequação da sua
+utilização no contexto do trabalho.
+O código deve ser claro e usar convenções de nomeação de variáveis, tipos, classes, funções e constantes.
+O código deve ser estruturado duma forma o mais modular possível, sem complexidades desnecessárias,
+e permitir reutilização, sempre que possível. A qualidade e correção do código não se mede pelo seu
+tamanho! Os alunos devem documentar/explicar o código criado através de comentários nas secções
+mais relevantes e no relatório. Todos os ficheiros do código devem ter um cabeçalho com a informação
+relevante que identifique os seus autores e explique as principais funções/classes criadas, tipos de dados
+e variáveis usadas, etc.
+O relatório pode ser escrito no formato e no editor que for mais conveniente e deve incluir, no mínimo:
+
+
+
+
+Uma primeira página com o título do trabalho e a identificação dos autores (incluindo fotografia),
+universidade, curso, unidade curricular e data de entrega;
+Um índice do conteúdo;
+Uma secção com a discussão das estratégias escolhidas, as opções tomadas, os mecanismos e
+tecnologias adotados, incluindo eventuais otimizações;
+
+Trabalho Prático – Sistema de Gestão de Tráfego Rodoviário
+
+7
+
+UM – DI, Gestão e Segurança de Redes
+
+
+
+
+
+
+
+
+Ano Letivo 2025/2026, 2º Semestre
+
+Uma secção com a explicação e análise crítica das principais funções/classes implementadas, os
+seus principais méritos e a suas limitações mais importantes;
+Uma secção com a apresentação de eventuais demonstrações e testes que se considerem
+relevantes, incluindo a discussão crítica do que for apresentado (não utilize fundos escuros na
+integração de imagens/scans para não penalizar a utilização de toner/tinta para quem desejar
+imprimir o relatório);
+Uma secção de conclusões que inclua uma eventual discussão sobre o que gostava de ter feito
+melhor ou de ter acrescentado e não conseguiu e a percentagem de participação de cada aluno
+em cada fase do desenvolvimento do projeto (ou no desenvolvimento do projeto como um todo);
+Uma lista de eventuais referências bibliográficas, artigos científicos ou recursos informais na
+web que tenham sido úteis.
+
+O relatório é para ser avaliado pelo docente por isso não inclua informação genérica e irrelevante que o
+docente já conheça. Tente ser conciso e claro. Sempre que incluir uma afirmação importante no contexto
+do relatório e que seja de autoria de terceiros, ou que seja baseada diretamente em afirmações de terceiros
+ou concluída de informação retirada de recursos alheios, deve referenciar corretamente essas autorias ou
+proveniências e acrescenta-las na lista das referências.
+O relatório pode incluir algumas partes relevantes do código quando estas ajudam às análises e
+justificações apresentadas. Não inclua código desnecessário no texto do relatório. Sempre que possível,
+comente antes o próprio código.
+Se incluir figuras ou excertos de código ou imagens de testes do software desenvolvido tente utilizar
+fundos claros para, caso seja necessário imprimir em papel o relatório, não se gastar muita tinta ou muito
+toner. O planeta agradece.
+No material entregue inclua apenas dois ficheiros: um ficheiro PDF com o relatório e um
+ficheiro zip com todos os ficheiros do projeto dentro duma diretoria com o seguinte nome
+GSR-25_26-NúmerosAlunos.zip, como por exemplo, GSR-25_26-53454_345454.zip.
+Por fim, é recomendável que, durante a defesa do trabalho, os alunos tentem responder honesta e
+concisamente apenas às questões colocadas por forma a que as sessões de apresentação não se arrastem
+muito para além dos 30-40 minutos.
+
+Trabalho Prático – Sistema de Gestão de Tráfego Rodoviário
+
+8
+
+
