@@ -18,6 +18,7 @@ from src.mib_objects import TrafficMIB, SimOperStatus
 from src.snmp_server import TrafficSNMPServer
 from src.ssfr import TrafficFlowSimulator
 from src.decision_system import DecisionSystem, AlgorithmType
+from src.snmp_bridge import set_global_mib
 
 
 # Configuração de logging
@@ -127,6 +128,9 @@ class TrafficManagementSystem:
             logger.info(f"  - Cruzamentos: {len(self.mib.get_all_crossroads())}")
             logger.info(f"  - Vias: {len(self.mib.get_all_roads())}")
             logger.info(f"  - Ligações: {len(self.mib.get_all_road_links())}")
+            
+            # Compartilhar MIB globalmente
+            set_global_mib(self.mib)
             
             return True
         
