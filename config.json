@@ -1,63 +1,29 @@
 {
-  "trafficGeneral": {
+  "geral": {
     "simStepDuration": 5,
-    "algoYellowTime": 3,
     "algoMinGreenTime": 15,
-    "algoMaxGreenTime": 60,
-    "currentAlgorithm": 1
+    "algoYellowTime": 3
   },
-  
   "crossroads": [
-    {
-      "crossroadIndex": 1,
-      "crossroadMode": 1
-    }
+    { "id": 1, "mode": 1 },
+    { "id": 2, "mode": 1 }
   ],
-
   "roads": [
-    {
-      "roadIndex": 1,
-      "roadName": "Avenida Principal (Entrada)",
-      "roadType": 3, 
-      "roadRTG": 30,
-      "roadMaxCapacity": 100,
-      "roadVehicleCount": 20, 
-      "roadCrossroadID": 1
-    },
-    {
-      "roadIndex": 2,
-      "roadName": "Rua Secundária (Entrada)",
-      "roadType": 3,
-      "roadRTG": 10,
-      "roadMaxCapacity": 50,
-      "roadVehicleCount": 5,
-      "roadCrossroadID": 1
-    },
-    {
-      "roadIndex": 3,
-      "roadName": "Estrada Nacional (Saída/Sink)",
-      "roadType": 2,
-      "roadRTG": 0,
-      "roadMaxCapacity": 200,
-      "roadVehicleCount": 0,
-      "roadCrossroadID": 0 
-    }
+    { "id": 1, "name": "Entrada Oeste", "type": 3, "rtg": 43, "maxCapacity": 50, "initialCount": 5 },
+    { "id": 2, "name": "Avenida C1->C2", "type": 1, "rtg": 43, "maxCapacity": 30, "initialCount": 2 },
+    { "id": 3, "name": "Avenida C2->C1", "type": 1, "rtg": 43, "maxCapacity": 30, "initialCount": 2 },
+    { "id": 4, "name": "Saida Oeste", "type": 2, "rtg": 43, "maxCapacity": 999, "initialCount": 1 },
+    { "id": 5, "name": "Entrada Norte C1", "type": 3, "rtg": 43, "maxCapacity": 40, "initialCount": 2 },
+    { "id": 6, "name": "Saida Sul C1", "type": 2, "rtg": 43, "maxCapacity": 999, "initialCount": 1 }
   ],
-
-  "roadLinks": [
-    {
-      "linkIndex": 1,
-      "linkSourceIndex": 1,
-      "linkDestIndex": 3,
-      "linkFlowRate": 20,
-      "linkActive": 1
-    },
-    {
-      "linkIndex": 2,
-      "linkSourceIndex": 2,
-      "linkDestIndex": 3,
-      "linkFlowRate": 10,
-      "linkActive": 1
-    }
+  "trafficLights": [
+    { "roadIndex": 1, "crID": 1, "axis": 2 },
+    { "roadIndex": 3, "crID": 1, "axis": 2 },
+    { "roadIndex": 5, "crID": 1, "axis": 1 }
+  ],
+  "links": [
+    { "src": 1, "dest": 2, "flowRate": 15 },
+    { "src": 1, "dest": 6, "flowRate": 5 },
+    { "src": 5, "dest": 6, "flowRate": 10 }
   ]
 }

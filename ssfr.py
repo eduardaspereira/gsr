@@ -1,61 +1,45 @@
-# ======================================================================================================
-# Autores:
-# Unidade Curricular: Gestão e Segurança de Redes (2025/2026)
-# Ficheiro: ssfr.py
-# Descrição: Componente de Simulação do Fluxo Rodoviário (SSFR) que corre localmente no SC.
-#           Simula o comportamento físico da rede num passo virtual, injetando veículos através
-#           dos RGT e processando o atravessamento de semáforos entre vias de origem e destino.
-#           Calcula estatísticas de performance e rastreia contadores por ligação (linkCarsPassed).
-# ======================================================================================================
+class SistemaSimulacao:
+    def __init__(self, shared_mib, config):
+        self.mib = shared_mib
+        self.cfg = config
+        self.base = "1.3.6.1.3.2026.1"
+        # Acumuladores para lidar com frações de veículos por segundo
+        self.accumulators = {r['id']: 0.0 for r in config['roads']}
 
-def simulate_step(vias, get_via_func, step):
-    # 1. Entrada contínua de veículos (RGT) nas vias de origem e métricas de tempo
-    for via in vias:
-        novos = (via.get('rgt', 0) * step) / 60.0
-        via['veiculos_atuais'] = min(via.get('capacidade', 100), via.get('veiculos_atuais', 0) + novos)
-        
-        # Inicialização segura de contadores de estatísticas (Independente)
-        if 'total_passados' not in via:
-            via['total_passados'] = 0
-        if 'tempo_parado_acumulado' not in via:
-            via['tempo_parado_acumulado'] = 0
+    def run_step(self, duration):
+        # 1. Geração de veículos por RTG (Vias de entrada) 
+        for road in self.cfg['roads']:
+            rid = road['id']
+            rtg = self.mib.get(f"{self.base}.3.1.4.{rid}", 0)
+            if rtg > 0:
+                self.accumulators[rid] += (rtg / 60.0) * duration
+                if self.accumulators[rid] >= 1.0:
+                    added = int(self.accumulators[rid])
+                    current = self.mib.get(f"{self.base}.3.1.6.{rid}", 0)
+                    capacity = self.mib.get(f"{self.base}.3.1.5.{rid}", 999)
+                    # Só adiciona se houver espaço [cite: 46]
+                    if current + added <= capacity:
+                        self.mib[f"{self.base}.3.1.6.{rid}"] = current + added
+                    self.accumulators[rid] -= added
+
+        # 2. Movimentação entre vias (Através de Links e Semáforos) [cite: 45, 52]
+        for link in self.cfg['links']:
+            src, dest = link['src'], link['dest']
+            # Verifica a cor do semáforo da via de origem [cite: 52]
+            # OID: trafficLightTable.trafficLightEntry.tlColor.roadIndex
+            color = self.mib.get(f"{self.base}.4.1.3.{src}", 1) # Default: Red
             
-        # Adiciona tempo de espera aos veículos que estão parados no vermelho ou amarelo
-        if 'semaforo' in via and via['semaforo']['cor'] in [1, 3]:
-            via['tempo_parado_acumulado'] += via['veiculos_atuais'] * step
-            
-        # Calcula o tempo médio de espera (segundos por veículo)
-        total_veiculos = via['veiculos_atuais'] + via['total_passados']
-        if total_veiculos > 0:
-            via['avg_wait_time'] = int(via['tempo_parado_acumulado'] / total_veiculos)
-        else:
-            via['avg_wait_time'] = 0
-        
-    # 2. Atravessamento dos semáforos (Verde = 2, Amarelo = 3 na MIB)
-    for via in vias:
-        semaforo = via.get('semaforo')
-        if not semaforo or semaforo.get('cor') not in [2, 3]: 
-            continue
-            
-        for destino in semaforo.get('destinos', []):
-            # Usa 0 como porto de abrigo se o ritmo não estiver definido
-            ritmo = destino.get('ritmo_saida', 0) 
-            taxa_passagem = (ritmo * step) / 60.0
-            quantidade_a_passar = min(via['veiculos_atuais'], taxa_passagem)
-            
-            via_dest = get_via_func(destino['via_id'])
-            
-            # Verifica se há espaço no destino
-            if via_dest and (via_dest['veiculos_atuais'] + quantidade_a_passar <= via_dest.get('capacidade', 100)):
-                via['veiculos_atuais'] -= quantidade_a_passar
-                via_dest['veiculos_atuais'] += quantidade_a_passar
-                via['total_passados'] += quantidade_a_passar
-                # Rastreia contadores por ligação (linkCarsPassed na roadLinkTable)
-                if 'link_cars_passed' not in via:
-                    via['link_cars_passed'] = {}
-                link_key = f"{via['id']}_{destino['via_id']}"
-                via['link_cars_passed'][link_key] = via['link_cars_passed'].get(link_key, 0) + quantidade_a_passar
-            elif not via_dest: 
-                # Sem destino definido = Escoamento para fora da rede
-                via['veiculos_atuais'] -= quantidade_a_passar
-                via['total_passados'] += quantidade_a_passar
+            if color in [2, 3]: # Green (2) ou Yellow (3) permitem passagem [cite: 79]
+                v_src = self.mib.get(f"{self.base}.3.1.6.{src}", 0)
+                v_dest = self.mib.get(f"{self.base}.3.1.6.{dest}", 0)
+                cap_dest = self.mib.get(f"{self.base}.3.1.5.{dest}", 999)
+                
+                # Fluxo baseado no linkFlowRate (veíc/min) [cite: 46]
+                flow_rate = link.get('flowRate', 10)
+                cars_to_move = int((flow_rate / 60.0) * duration)
+                if cars_to_move < 1 and v_src > 0: cars_to_move = 1 # Garante movimento mínimo
+
+                actual_move = min(v_src, cars_to_move, cap_dest - v_dest)
+                if actual_move > 0:
+                    self.mib[f"{self.base}.3.1.6.{src}"] = v_src - actual_move
+                    self.mib[f"{self.base}.3.1.6.{dest}"] = v_dest + actual_move

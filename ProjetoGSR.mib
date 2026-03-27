@@ -89,14 +89,14 @@ trafficMgmtMIB MODULE-IDENTITY
     ORGANIZATION "Universidade do Minho - Departamento de Informatica"
     CONTACT-INFO
         "Mestrado em Engenharia Informatica
-         Gestao e Seguranca de Redes 2025/2026"
+        Gestao e Seguranca de Redes 2025/2026"
     DESCRIPTION
         "MIB experimental para o sistema de gestao de trafego
-         rodoviario urbano. Define objetos para representar uma
-         rede rodoviaria como um grafo dirigido, onde cada no
-         e um semaforo e cada aresta uma via de trafego num so
-         sentido. Permite a monitorizacao e controlo do fluxo
-         rodoviario atraves do protocolo SNMPv2c."
+        rodoviario urbano. Define objetos para representar uma
+        rede rodoviaria como um grafo dirigido, onde cada no
+        e um semaforo e cada aresta uma via de trafego num so
+        sentido. Permite a monitorizacao e controlo do fluxo
+        rodoviario atraves do protocolo SNMPv2c."
     REVISION "202602200000Z"
     DESCRIPTION
         "Versao inicial da MIB do projeto GSR."
@@ -110,9 +110,9 @@ SimOperStatus ::= TEXTUAL-CONVENTION
     STATUS      current
     DESCRIPTION
         "Estado operacional da simulacao de trafego:
-         running(1)  - simulacao em execucao,
-         stopped(2)  - simulacao parada,
-         reset(3)    - reinicializacao ao estado inicial."
+        running(1)  - simulacao em execucao,
+        stopped(2)  - simulacao parada,
+        reset(3)    - reinicializacao ao estado inicial."
     SYNTAX INTEGER {
         running(1),
         stopped(2),
@@ -123,10 +123,10 @@ RoadType ::= TEXTUAL-CONVENTION
     STATUS      current
     DESCRIPTION
         "Tipo de via rodoviaria:
-         normal(1)  - via com semaforo e ligacoes a vias destino,
-         sink(2)    - via de escoamento para fora da rede simulada,
-         source(3)  - via de entrada de veiculos externos sem
-                      semaforo de origem."
+        normal(1)  - via com semaforo e ligacoes a vias destino,
+        sink(2)    - via de escoamento para fora da rede simulada,
+        source(3)  - via de entrada de veiculos externos sem
+                    semaforo de origem."
     SYNTAX INTEGER {
         normal(1),
         sink(2),
@@ -137,7 +137,7 @@ TrafficColor ::= TEXTUAL-CONVENTION
     STATUS      current
     DESCRIPTION
         "Cor atual do semaforo. O semaforo tem uma unica cor
-         em simultaneo para todas as vias de destino."
+        em simultaneo para todas as vias de destino."
     SYNTAX INTEGER {
         red(1),
         green(2),
@@ -148,9 +148,9 @@ TrafficAxis ::= TEXTUAL-CONVENTION
     STATUS      current
     DESCRIPTION
         "Eixo direcional do semaforo dentro de um cruzamento.
-         Usado para definir a exclusao mutua entre fases:
-         ns(1) - eixo Norte-Sul,
-         ew(2) - eixo Este-Oeste."
+        Usado para definir a exclusao mutua entre fases:
+        ns(1) - eixo Norte-Sul,
+        ew(2) - eixo Este-Oeste."
     SYNTAX INTEGER {
         ns(1),
         ew(2)
@@ -160,9 +160,9 @@ CrossroadMode ::= TEXTUAL-CONVENTION
     STATUS      current
     DESCRIPTION
         "Modo de operacao do cruzamento:
-         normal(1)         - operacao normal com fases,
-         flashingYellow(2) - amarelo intermitente (avaria),
-         emergencyRed(3)   - vermelho total de emergencia."
+        normal(1)         - operacao normal com fases,
+        flashingYellow(2) - amarelo intermitente (avaria),
+        emergencyRed(3)   - vermelho total de emergencia."
     SYNTAX INTEGER {
         normal(1),
         flashingYellow(2),
@@ -173,8 +173,8 @@ LinkState ::= TEXTUAL-CONVENTION
     STATUS      current
     DESCRIPTION
         "Estado operacional de uma ligacao entre vias:
-         active(1)   - ligacao ativa, permite passagem de veiculos,
-         inactive(2) - ligacao desativada."
+        active(1)   - ligacao ativa, permite passagem de veiculos,
+        inactive(2) - ligacao desativada."
     SYNTAX INTEGER {
         active(1),
         inactive(2)
@@ -199,7 +199,7 @@ simStatus OBJECT-TYPE
     STATUS      current
     DESCRIPTION
         "Estado operacional da simulacao. Permite iniciar (running),
-         parar (stopped) ou reiniciar (reset) a simulacao de trafego."
+        parar (stopped) ou reiniciar (reset) a simulacao de trafego."
     ::= { trafficGeneral 1 }
 
 simStepDuration OBJECT-TYPE
@@ -209,8 +209,8 @@ simStepDuration OBJECT-TYPE
     STATUS      current
     DESCRIPTION
         "Duracao de cada passo da simulacao em segundos. Define o
-         intervalo temporal virtual entre atualizacoes do SSFR e SD.
-         Valor tipico: 5 segundos."
+        intervalo temporal virtual entre atualizacoes do SSFR e SD.
+        Valor tipico: 5 segundos."
     ::= { trafficGeneral 2 }
 
 globalVehicleCount OBJECT-TYPE
@@ -219,7 +219,7 @@ globalVehicleCount OBJECT-TYPE
     STATUS      current
     DESCRIPTION
         "Numero total de veiculos presentes em todas as vias da
-         rede rodoviaria simulada no instante atual."
+        rede rodoviaria simulada no instante atual."
     ::= { trafficGeneral 3 }
 
 algoMinGreenTime OBJECT-TYPE
@@ -229,7 +229,7 @@ algoMinGreenTime OBJECT-TYPE
     STATUS      current
     DESCRIPTION
         "Tempo minimo de verde que o sistema de decisao deve atribuir
-         a qualquer semaforo. Parametro configuravel do algoritmo SD."
+        a qualquer semaforo. Parametro configuravel do algoritmo SD."
     ::= { trafficGeneral 4 }
 
 algoYellowTime OBJECT-TYPE
@@ -239,7 +239,7 @@ algoYellowTime OBJECT-TYPE
     STATUS      current
     DESCRIPTION
         "Tempo fixo de amarelo para todos os semaforos. Este valor e
-         constante e definido na configuracao inicial do sistema."
+        constante e definido na configuracao inicial do sistema."
     ::= { trafficGeneral 5 }
 
 totalRoadCount OBJECT-TYPE
@@ -268,8 +268,8 @@ crossroadTable OBJECT-TYPE
     STATUS      current
     DESCRIPTION
         "Tabela de cruzamentos da rede rodoviaria. Cada cruzamento
-         agrupa um conjunto de semaforos que operam em exclusao mutua
-         entre eixos (fases)."
+        agrupa um conjunto de semaforos que operam em exclusao mutua
+        entre eixos (fases)."
     ::= { trafficObjects 2 }
 
 crossroadEntry OBJECT-TYPE
@@ -301,7 +301,7 @@ crossroadMode OBJECT-TYPE
     STATUS      current
     DESCRIPTION
         "Modo de operacao do cruzamento: normal, amarelo intermitente
-         ou vermelho de emergencia."
+        ou vermelho de emergencia."
     ::= { crossroadEntry 2 }
 
 crossroadRowStatus OBJECT-TYPE
@@ -310,7 +310,7 @@ crossroadRowStatus OBJECT-TYPE
     STATUS      current
     DESCRIPTION
         "Estado da linha para gestao de criacao e remocao de entradas
-         na crossroadTable."
+        na crossroadTable."
     ::= { crossroadEntry 3 }
 
 -- ======================================================================
@@ -323,9 +323,9 @@ roadTable OBJECT-TYPE
     STATUS      current
     DESCRIPTION
         "Tabela principal das vias rodoviarias. Cada via e uma aresta
-         do grafo da rede, com uma origem e um destino, representando
-         um unico sentido de trafego. Do ponto de vista do modelo de
-         informacao, a via e o objeto principal."
+        do grafo da rede, com uma origem e um destino, representando
+        um unico sentido de trafego. Do ponto de vista do modelo de
+        informacao, a via e o objeto principal."
     ::= { trafficObjects 3 }
 
 roadEntry OBJECT-TYPE
@@ -334,7 +334,7 @@ roadEntry OBJECT-TYPE
     STATUS      current
     DESCRIPTION
         "Entrada para uma via individual com os seus atributos de
-         configuracao, estado e estatisticas."
+        configuracao, estado e estatisticas."
     INDEX { roadIndex }
     ::= { roadTable 1 }
 
@@ -356,7 +356,7 @@ roadIndex OBJECT-TYPE
     STATUS      current
     DESCRIPTION
         "Identificador unico da via rodoviaria. Usado como indice
-         nesta tabela e na trafficLightTable."
+        nesta tabela e na trafficLightTable."
     ::= { roadEntry 1 }
 
 roadName OBJECT-TYPE
@@ -373,8 +373,8 @@ roadType OBJECT-TYPE
     STATUS      current
     DESCRIPTION
         "Tipo da via: normal (com semaforo e ligacoes), sink
-         (escoamento para fora da rede) ou source (fonte externa
-         de veiculos sem semaforo de origem)."
+        (escoamento para fora da rede) ou source (fonte externa
+        de veiculos sem semaforo de origem)."
     ::= { roadEntry 3 }
 
 roadRTG OBJECT-TYPE
@@ -384,9 +384,9 @@ roadRTG OBJECT-TYPE
     STATUS      current
     DESCRIPTION
         "Ritmo Gerador de Trafego (RGT). Define o ritmo de entrada
-         de veiculos externos na via, em veiculos por minuto. Este
-         valor deve poder ser alterado externamente pelo administrador
-         do sistema atraves da CMC durante a simulacao."
+        de veiculos externos na via, em veiculos por minuto. Este
+        valor deve poder ser alterado externamente pelo administrador
+        do sistema atraves da CMC durante a simulacao."
     ::= { roadEntry 4 }
 
 roadMaxCapacity OBJECT-TYPE
@@ -395,7 +395,7 @@ roadMaxCapacity OBJECT-TYPE
     STATUS      current
     DESCRIPTION
         "Capacidade maxima da via em numero de veiculos. Quando
-         atingida, impede a entrada de novos veiculos na via."
+        atingida, impede a entrada de novos veiculos na via."
     ::= { roadEntry 5 }
 
 roadVehicleCount OBJECT-TYPE
@@ -404,8 +404,8 @@ roadVehicleCount OBJECT-TYPE
     STATUS      current
     DESCRIPTION
         "Numero atual de veiculos na via, incluindo veiculos a
-         circular e a espera para atravessar o semaforo. Na
-         configuracao inicial, este valor pode ser diferente de zero."
+        circular e a espera para atravessar o semaforo. Na
+        configuracao inicial, este valor pode ser diferente de zero."
     ::= { roadEntry 6 }
 
 roadTotalCarsPassed OBJECT-TYPE
@@ -414,7 +414,7 @@ roadTotalCarsPassed OBJECT-TYPE
     STATUS      current
     DESCRIPTION
         "Numero total acumulado de veiculos que atravessaram o
-         semaforo desta via desde o inicio da simulacao."
+        semaforo desta via desde o inicio da simulacao."
     ::= { roadEntry 7 }
 
 roadAverageWaitTime OBJECT-TYPE
@@ -424,8 +424,8 @@ roadAverageWaitTime OBJECT-TYPE
     STATUS      current
     DESCRIPTION
         "Tempo medio de espera dos veiculos nesta via em segundos.
-         Calculado como a razao entre o tempo parado acumulado e
-         o total de veiculos que passaram ou estao na via."
+        Calculado como a razao entre o tempo parado acumulado e
+        o total de veiculos que passaram ou estao na via."
     ::= { roadEntry 8 }
 
 roadRowStatus OBJECT-TYPE
@@ -446,10 +446,10 @@ trafficLightTable OBJECT-TYPE
     STATUS      current
     DESCRIPTION
         "Tabela dos semaforos da rede rodoviaria. Cada semaforo esta
-         associado a uma via (indexado por roadIndex) e controla o
-         fluxo de trafego para as vias de destino. Uma via pode nao
-         ter semaforo (e.g., vias do tipo sink). O semaforo tem
-         apenas uma cor em simultaneo para todas as vias destino."
+        associado a uma via (indexado por roadIndex) e controla o
+        fluxo de trafego para as vias de destino. Uma via pode nao
+        ter semaforo (e.g., vias do tipo sink). O semaforo tem
+        apenas uma cor em simultaneo para todas as vias destino."
     ::= { trafficObjects 4 }
 
 trafficLightEntry OBJECT-TYPE
@@ -458,7 +458,7 @@ trafficLightEntry OBJECT-TYPE
     STATUS      current
     DESCRIPTION
         "Entrada para um semaforo individual, indexado pela via
-         a que pertence (roadIndex herdado da roadTable)."
+        a que pertence (roadIndex herdado da roadTable)."
     INDEX { roadIndex }
     ::= { trafficLightTable 1 }
 
@@ -478,7 +478,7 @@ tlCrossroadID OBJECT-TYPE
     STATUS      current
     DESCRIPTION
         "Identificador do cruzamento a que o semaforo pertence.
-         Referencia crossroadIndex na crossroadTable."
+        Referencia crossroadIndex na crossroadTable."
     ::= { trafficLightEntry 1 }
 
 tlAxis OBJECT-TYPE
@@ -487,7 +487,7 @@ tlAxis OBJECT-TYPE
     STATUS      current
     DESCRIPTION
         "Eixo direcional do semaforo (Norte-Sul ou Este-Oeste).
-         Usado para definir fases de exclusao mutua no cruzamento."
+        Usado para definir fases de exclusao mutua no cruzamento."
     ::= { trafficLightEntry 2 }
 
 tlColor OBJECT-TYPE
@@ -496,7 +496,7 @@ tlColor OBJECT-TYPE
     STATUS      current
     DESCRIPTION
         "Cor atual do semaforo. Atualizado pelo sistema de decisao
-         (SD) em cada passo da simulacao."
+        (SD) em cada passo da simulacao."
     ::= { trafficLightEntry 3 }
 
 tlTimeRemaining OBJECT-TYPE
@@ -506,7 +506,7 @@ tlTimeRemaining OBJECT-TYPE
     STATUS      current
     DESCRIPTION
         "Tempo restante em segundos ate a proxima mudanca de cor
-         do semaforo."
+        do semaforo."
     ::= { trafficLightEntry 4 }
 
 tlGreenDuration OBJECT-TYPE
@@ -516,7 +516,7 @@ tlGreenDuration OBJECT-TYPE
     STATUS      current
     DESCRIPTION
         "Duracao total do tempo de verde calculada pelo sistema de
-         decisao (SD) para este semaforo no ciclo atual."
+        decisao (SD) para este semaforo no ciclo atual."
     ::= { trafficLightEntry 5 }
 
 tlRedDuration OBJECT-TYPE
@@ -526,7 +526,7 @@ tlRedDuration OBJECT-TYPE
     STATUS      current
     DESCRIPTION
         "Duracao total do tempo de vermelho calculada pelo sistema
-         de decisao (SD) para este semaforo no ciclo atual."
+        de decisao (SD) para este semaforo no ciclo atual."
     ::= { trafficLightEntry 6 }
 
 tlRowStatus OBJECT-TYPE
@@ -535,7 +535,7 @@ tlRowStatus OBJECT-TYPE
     STATUS      current
     DESCRIPTION
         "Estado da linha para gestao de entradas na
-         trafficLightTable."
+        trafficLightTable."
     ::= { trafficLightEntry 7 }
 
 -- ======================================================================
@@ -548,11 +548,11 @@ roadLinkTable OBJECT-TYPE
     STATUS      current
     DESCRIPTION
         "Tabela de ligacoes entre vias. Define as arestas do grafo
-         da rede rodoviaria, com o ritmo de distribuicao de trafego
-         entre cada par origem-destino. Quando uma via de origem
-         permite a ligacao a mais do que uma via de destino, a
-         definicao dos ritmos controla a percentagem de trafego
-         que cada via destino vai acomodar."
+        da rede rodoviaria, com o ritmo de distribuicao de trafego
+        entre cada par origem-destino. Quando uma via de origem
+        permite a ligacao a mais do que uma via de destino, a
+        definicao dos ritmos controla a percentagem de trafego
+        que cada via destino vai acomodar."
     ::= { trafficObjects 5 }
 
 roadLinkEntry OBJECT-TYPE
@@ -561,7 +561,7 @@ roadLinkEntry OBJECT-TYPE
     STATUS      current
     DESCRIPTION
         "Ligacao entre uma via de origem e uma via de destino, com
-         o ritmo de distribuicao e estado operacional."
+        o ritmo de distribuicao e estado operacional."
     INDEX { roadIndex, linkDestIndex }
     ::= { roadLinkTable 1 }
 
@@ -579,7 +579,7 @@ linkDestIndex OBJECT-TYPE
     STATUS      current
     DESCRIPTION
         "Identificador da via de destino desta ligacao.
-         Referencia roadIndex na roadTable."
+        Referencia roadIndex na roadTable."
     ::= { roadLinkEntry 1 }
 
 linkFlowRate OBJECT-TYPE
@@ -589,8 +589,8 @@ linkFlowRate OBJECT-TYPE
     STATUS      current
     DESCRIPTION
         "Ritmo de distribuicao de trafego da via de origem para
-         esta via de destino, em veiculos por minuto. Fixado na
-         configuracao inicial do sistema."
+        esta via de destino, em veiculos por minuto. Fixado na
+        configuracao inicial do sistema."
     ::= { roadLinkEntry 2 }
 
 linkActive OBJECT-TYPE
@@ -599,7 +599,7 @@ linkActive OBJECT-TYPE
     STATUS      current
     DESCRIPTION
         "Estado operacional da ligacao: active (permite passagem
-         de veiculos) ou inactive (ligacao desativada)."
+        de veiculos) ou inactive (ligacao desativada)."
     ::= { roadLinkEntry 3 }
 
 linkCarsPassed OBJECT-TYPE
@@ -608,7 +608,7 @@ linkCarsPassed OBJECT-TYPE
     STATUS      current
     DESCRIPTION
         "Numero total de veiculos que passaram por esta ligacao
-         especifica desde o inicio da simulacao."
+        especifica desde o inicio da simulacao."
     ::= { roadLinkEntry 4 }
 
 linkRowStatus OBJECT-TYPE
@@ -630,7 +630,7 @@ trafficMIBCompliance MODULE-COMPLIANCE
     STATUS      current
     DESCRIPTION
         "Declaracao de conformidade para implementacoes da
-         TRAFFIC-MGMT-MIB."
+        TRAFFIC-MGMT-MIB."
     MODULE
         MANDATORY-GROUPS {
             trafficGeneralGroup,
