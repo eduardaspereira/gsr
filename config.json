@@ -6,29 +6,49 @@
   },
   "crossroads": [
     { "id": 1, "mode": 1 },
-    { "id": 2, "mode": 1 }
+    { "id": 2, "mode": 1 },
+    { "id": 3, "mode": 1 },
+    { "id": 4, "mode": 1 }
   ],
   "roads": [
-    { "id": 1, "name": "Entrada Oeste", "type": 3, "rtg": 43, "maxCapacity": 50, "initialCount": 0 },
-    { "id": 2, "name": "Avenida C1->C2", "type": 1, "rtg": 43, "maxCapacity": 30, "initialCount": 0 },
-    { "id": 3, "name": "Avenida C2->C1", "type": 1, "rtg": 43, "maxCapacity": 30, "initialCount": 0 },
-    { "id": 4, "name": "Saida Oeste", "type": 2, "rtg": 43, "maxCapacity": 999, "initialCount": 0 },
-    { "id": 5, "name": "Entrada Norte C1", "type": 3, "rtg": 43, "maxCapacity": 40, "initialCount": 0 },
-    { "id": 6, "name": "Saida Sul C1", "type": 2, "rtg": 43, "maxCapacity": 999, "initialCount": 0 },
-    { "id": 7, "name": "Entrada Norte C2", "type": 3, "rtg": 43, "maxCapacity": 40, "initialCount": 0 },
-    { "id": 8, "name": "Entrada Sul C1", "type": 3, "rtg": 43, "maxCapacity": 40, "initialCount": 0 },
-    { "id": 9, "name": "Entrada Sul C2", "type": 3, "rtg": 43, "maxCapacity": 40, "initialCount": 0 },
-    { "id": 10, "name": "Entrada Este C2", "type": 3, "rtg": 43, "maxCapacity": 50, "initialCount": 0 }
+    { "id": 101, "name": "Input Oeste", "type": 3, "rtg": 5, "maxCapacity": 50, "initialCount": 0 },
+    { "id": 102, "name": "Input Norte", "type": 3, "rtg": 5, "maxCapacity": 50, "initialCount": 0 },
+    { "id": 103, "name": "Input Este",  "type": 3, "rtg": 5, "maxCapacity": 50, "initialCount": 0 },
+    { "id": 104, "name": "Input Sul",   "type": 3, "rtg": 5, "maxCapacity": 50, "initialCount": 0 },
+    
+    { "id": 1, "name": "Loop C1->C2", "type": 1, "rtg": 0, "maxCapacity": 30, "initialCount": 0 },
+    { "id": 2, "name": "Loop C2->C3", "type": 1, "rtg": 0, "maxCapacity": 30, "initialCount": 0 },
+    { "id": 3, "name": "Loop C3->C4", "type": 1, "rtg": 0, "maxCapacity": 30, "initialCount": 0 },
+    { "id": 4, "name": "Loop C4->C1", "type": 1, "rtg": 0, "maxCapacity": 30, "initialCount": 0 },
+
+    { "id": 91, "name": "Saida Norte", "type": 2, "rtg": 0, "maxCapacity": 999, "initialCount": 0 },
+    { "id": 92, "name": "Saida Este",  "type": 2, "rtg": 0, "maxCapacity": 999, "initialCount": 0 },
+    { "id": 93, "name": "Saida Sul",   "type": 2, "rtg": 0, "maxCapacity": 999, "initialCount": 0 },
+    { "id": 94, "name": "Saida Oeste", "type": 2, "rtg": 0, "maxCapacity": 999, "initialCount": 0 }
   ],
   "trafficLights": [
-    { "roadIndex": 1, "crID": 1, "axis": 2 },
-    { "roadIndex": 3, "crID": 1, "axis": 2 },
-    { "roadIndex": 5, "crID": 1, "axis": 1 },
-    { "roadIndex": 8, "crID": 1, "axis": 1 },
-    { "roadIndex": 2, "crID": 2, "axis": 2 },
-    { "roadIndex": 7, "crID": 2, "axis": 1 },
-    { "roadIndex": 9, "crID": 2, "axis": 1 },
-    { "roadIndex": 10, "crID": 2, "axis": 2 }
+    { "roadIndex": 101, "crID": 1, "axis": 2 },
+    { "roadIndex": 4,   "crID": 1, "axis": 1 },
+    { "roadIndex": 1,   "crID": 2, "axis": 2 },
+    { "roadIndex": 102, "crID": 2, "axis": 1 },
+    { "roadIndex": 103, "crID": 3, "axis": 2 },
+    { "roadIndex": 2,   "crID": 3, "axis": 1 },
+    { "roadIndex": 3,   "crID": 4, "axis": 2 },
+    { "roadIndex": 104, "crID": 4, "axis": 1 }
   ],
-  "links": []
+  "links": [
+    { "src": 101, "dest": 1, "flowRate": 100 },
+    { "src": 102, "dest": 2, "flowRate": 100 },
+    { "src": 103, "dest": 3, "flowRate": 100 },
+    { "src": 104, "dest": 4, "flowRate": 100 },
+
+    { "src": 4, "dest": 1, "flowRate": 70 },
+    { "src": 4, "dest": 91, "flowRate": 30 },
+    { "src": 1, "dest": 2, "flowRate": 70 },
+    { "src": 1, "dest": 92, "flowRate": 30 },
+    { "src": 2, "dest": 3, "flowRate": 70 },
+    { "src": 2, "dest": 93, "flowRate": 30 },
+    { "src": 3, "dest": 4, "flowRate": 70 },
+    { "src": 3, "dest": 94, "flowRate": 30 }
+  ]
 }
