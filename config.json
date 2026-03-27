@@ -9,24 +9,26 @@
     { "id": 2, "mode": 1 }
   ],
   "roads": [
-    { "id": 1, "name": "Entrada Oeste", "type": 3, "rtg": 43, "maxCapacity": 50, "initialCount": 5 },
-    { "id": 2, "name": "Avenida C1->C2", "type": 1, "rtg": 43, "maxCapacity": 30, "initialCount": 2 },
-    { "id": 3, "name": "Avenida C2->C1", "type": 1, "rtg": 43, "maxCapacity": 30, "initialCount": 2 },
-    { "id": 4, "name": "Saida Oeste", "type": 2, "rtg": 43, "maxCapacity": 999, "initialCount": 1 },
-    { "id": 5, "name": "Entrada Norte C1", "type": 3, "rtg": 43, "maxCapacity": 40, "initialCount": 2 },
-    { "id": 6, "name": "Saida Sul C1", "type": 2, "rtg": 43, "maxCapacity": 999, "initialCount": 1 },
-    { "id": 7, "name": "Entrada Norte C2", "type": 3, "rtg": 43, "maxCapacity": 40, "initialCount": 2 }
+    { "id": 1, "name": "Entrada Oeste", "type": 3, "rtg": 43, "maxCapacity": 50, "initialCount": 0 },
+    { "id": 2, "name": "Avenida C1->C2", "type": 1, "rtg": 43, "maxCapacity": 30, "initialCount": 0 },
+    { "id": 3, "name": "Avenida C2->C1", "type": 1, "rtg": 43, "maxCapacity": 30, "initialCount": 0 },
+    { "id": 4, "name": "Saida Oeste", "type": 2, "rtg": 43, "maxCapacity": 999, "initialCount": 0 },
+    { "id": 5, "name": "Entrada Norte C1", "type": 3, "rtg": 43, "maxCapacity": 40, "initialCount": 0 },
+    { "id": 6, "name": "Saida Sul C1", "type": 2, "rtg": 43, "maxCapacity": 999, "initialCount": 0 },
+    { "id": 7, "name": "Entrada Norte C2", "type": 3, "rtg": 43, "maxCapacity": 40, "initialCount": 0 },
+    { "id": 8, "name": "Entrada Sul C1", "type": 3, "rtg": 43, "maxCapacity": 40, "initialCount": 0 },
+    { "id": 9, "name": "Entrada Sul C2", "type": 3, "rtg": 43, "maxCapacity": 40, "initialCount": 0 },
+    { "id": 10, "name": "Entrada Este C2", "type": 3, "rtg": 43, "maxCapacity": 50, "initialCount": 0 }
   ],
   "trafficLights": [
     { "roadIndex": 1, "crID": 1, "axis": 2 },
     { "roadIndex": 3, "crID": 1, "axis": 2 },
     { "roadIndex": 5, "crID": 1, "axis": 1 },
+    { "roadIndex": 8, "crID": 1, "axis": 1 },
     { "roadIndex": 2, "crID": 2, "axis": 2 },
-    { "roadIndex": 7, "crID": 2, "axis": 1 }
+    { "roadIndex": 7, "crID": 2, "axis": 1 },
+    { "roadIndex": 9, "crID": 2, "axis": 1 },
+    { "roadIndex": 10, "crID": 2, "axis": 2 }
   ],
-  "links": [
-    { "src": 1, "dest": 2, "flowRate": 15 },
-    { "src": 1, "dest": 6, "flowRate": 5 },
-    { "src": 5, "dest": 6, "flowRate": 10 }
-  ]
+  "links": []
 }

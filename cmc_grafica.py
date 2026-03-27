@@ -70,33 +70,41 @@ class Carro:
         self.via = via
         self.cor = (0, 180, 255) 
         
-        # O Spawn acontece nas vias de entrada (1, 3, 5, 7)
-        if via == 1: self.rect = pygame.Rect(-20, 310, 20, 12)    # Vem de Oeste
-        elif via == 3: self.rect = pygame.Rect(850, 270, 20, 12)  # Vem de Este (C2->C1)
-        elif via == 5: self.rect = pygame.Rect(250, -20, 12, 20)  # Vem de Norte C1
-        elif via == 7: self.rect = pygame.Rect(510, -20, 12, 20)  # Vem de Norte C2
+        if via == 1: self.rect = pygame.Rect(-20, 310, 20, 12)    
+        elif via == 10: self.rect = pygame.Rect(850, 270, 20, 12) # Nova Via 10 (Entrada Este)
+        elif via == 5: self.rect = pygame.Rect(250, -20, 12, 20)  
+        elif via == 7: self.rect = pygame.Rect(510, -20, 12, 20)  
+        elif via == 8: self.rect = pygame.Rect(290, 650, 12, 20)  
+        elif via == 9: self.rect = pygame.Rect(550, 650, 12, 20)  
 
     def atualizar(self, carros_existentes):
         vel = 2
         futuro_rect = self.rect.copy()
         
         if self.via == 1: futuro_rect.x += vel
-        elif self.via == 3: futuro_rect.x -= vel
+        elif self.via == 10: futuro_rect.x -= vel
         elif self.via in [5, 7]: futuro_rect.y += vel
+        elif self.via in [8, 9]: futuro_rect.y -= vel
         
-        # Lógica de Paragem nos Semáforos
+        # Lógica de Paragem (Apenas no Vermelho == 1)
         if self.via == 1:
-            if estado_semaforos.get(1, 2) in [1, 3] and 220 <= self.rect.right <= 240: return # C1
-            if estado_semaforos.get(2, 2) in [1, 3] and 480 <= self.rect.right <= 500: return # C2
-        elif self.via == 3:
-            if estado_semaforos.get(2, 2) in [1, 3] and 540 <= self.rect.left <= 560: return # C2
-            if estado_semaforos.get(3, 2) in [1, 3] and 320 <= self.rect.left <= 340: return # C1
+            if estado_semaforos.get(1, 2) == 1 and 220 <= self.rect.right <= 240: return
+            if estado_semaforos.get(2, 2) == 1 and 480 <= self.rect.right <= 500: return
+        elif self.via == 10:
+            # Pára no C2 (Semáforo 10)
+            if estado_semaforos.get(10, 2) == 1 and 580 <= self.rect.left <= 600: return
+            # Pára no C1 (Semáforo 3)
+            if estado_semaforos.get(3, 2) == 1 and 320 <= self.rect.left <= 340: return
         elif self.via == 5:
-            if estado_semaforos.get(5, 2) in [1, 3] and 240 <= self.rect.bottom <= 260: return # C1
+            if estado_semaforos.get(5, 2) == 1 and 240 <= self.rect.bottom <= 260: return
         elif self.via == 7:
-            if estado_semaforos.get(7, 2) in [1, 3] and 240 <= self.rect.bottom <= 260: return # C2
+            if estado_semaforos.get(7, 2) == 1 and 240 <= self.rect.bottom <= 260: return
+        elif self.via == 8:
+            if estado_semaforos.get(8, 2) == 1 and 340 <= self.rect.top <= 360: return
+        elif self.via == 9:
+            if estado_semaforos.get(9, 2) == 1 and 340 <= self.rect.top <= 360: return
 
-        # Prevenir bater na traseira do carro da frente
+        # Colisões em fila
         for c in carros_existentes:
             if c != self and futuro_rect.colliderect(c.rect): return
                 
@@ -108,19 +116,17 @@ class Carro:
 def desenhar_mapa():
     pygame.init()
     ecra = pygame.display.set_mode((850, 650))
-    pygame.display.set_caption("CMC Gráfica - Gestão de RTG")
+    pygame.display.set_caption("CMC Gráfica - Via 10 no C2 e Via 3 no C1")
     relogio = pygame.time.Clock()
 
     CORES_SEMAFORO = {1: (255, 50, 50), 2: (50, 255, 50), 3: (255, 200, 50)}
     fonte = pygame.font.SysFont("Arial", 16, bold=True)
-    fonte_grande = pygame.font.SysFont("Arial", 20, bold=True)
+    fonte_grande = pygame.font.SysFont("Courier New", 20, bold=True)
 
     carros = []
-    # Vias que injetam trânsito na rede
-    vias_geradoras = [1, 3, 5, 7]
+    vias_geradoras = [1, 5, 7, 8, 9, 10] # Trocado 3 por 10
     tempo_ultimo_spawn = {v: time.time() for v in vias_geradoras}
 
-    via_selecionada = None
     texto_input = ""
 
     while True:
@@ -131,24 +137,39 @@ def desenhar_mapa():
                 sys.exit()
                 
             elif evento.type == pygame.KEYDOWN:
-                # Teclas de atalho para as vias geradoras
-                if evento.unicode in ['1', '3', '5', '7']:
-                    via_selecionada = int(evento.unicode)
-                    texto_input = ""
-                elif via_selecionada is not None:
-                    if evento.key == pygame.K_BACKSPACE: texto_input = texto_input[:-1]
-                    elif evento.key == pygame.K_RETURN and texto_input.isdigit():
-                        if snmp_loop: asyncio.run_coroutine_threadsafe(enviar_novo_rtg_snmp(via_selecionada, int(texto_input)), snmp_loop)
-                        texto_input = ""
-                        via_selecionada = None
-                    elif evento.unicode.isdigit(): texto_input += evento.unicode
+                if evento.key == pygame.K_BACKSPACE:
+                    texto_input = texto_input[:-1]
+                elif evento.key == pygame.K_TAB:
+                    texto_input += "\t"
+                elif evento.key == pygame.K_RETURN:
+                    try:
+                        partes = texto_input.split('\t')
+                        if len(partes) == 2:
+                            via_alvo = int(partes[0].strip())
+                            novo_rtg = int(partes[1].strip())
+                            if snmp_loop and via_alvo in estado_rtg:
+                                asyncio.run_coroutine_threadsafe(enviar_novo_rtg_snmp(via_alvo, novo_rtg), snmp_loop)
+                    except ValueError:
+                        pass 
+                    
+                    texto_input = "" 
+                elif evento.unicode.isdigit():
+                    texto_input += evento.unicode
 
-        # Spawn dinâmico nas vias geradoras (1, 3, 5, 7)
+        # Geração de Tráfego com redução no amarelo
         for via in vias_geradoras:
-            rtg_atual = estado_rtg.get(via, 0)
-            if rtg_atual > 0 and agora - tempo_ultimo_spawn[via] > (60.0 / rtg_atual):
-                carros.append(Carro(via))
-                tempo_ultimo_spawn[via] = agora
+            rtg_base = estado_rtg.get(via, 0)
+            if rtg_base > 0:
+                if estado_semaforos.get(via, 2) == 3:
+                    rtg_efetivo = rtg_base / 2.0
+                else:
+                    rtg_efetivo = float(rtg_base)
+                
+                if rtg_efetivo > 0:
+                    intervalo_segundos = 60.0 / rtg_efetivo
+                    if agora - tempo_ultimo_spawn[via] > intervalo_segundos:
+                        carros.append(Carro(via))
+                        tempo_ultimo_spawn[via] = agora
 
         for carro in carros[:]:
             carro.atualizar(carros)
@@ -156,45 +177,47 @@ def desenhar_mapa():
 
         ecra.fill((40, 45, 50)) 
 
-        # Desenhar Estradas
-        pygame.draw.rect(ecra, (100, 100, 100), (0, 260, 850, 80)) # EW
+        # Estradas
+        pygame.draw.rect(ecra, (100, 100, 100), (0, 260, 850, 80))
         for x in range(10, 850, 40): pygame.draw.rect(ecra, (255, 255, 255), (x, 298, 20, 4))
-        
-        pygame.draw.rect(ecra, (100, 100, 100), (240, 50, 80, 500)) # C1 NS
+        pygame.draw.rect(ecra, (100, 100, 100), (240, 50, 80, 500))
         for y in range(50, 550, 40): pygame.draw.rect(ecra, (255, 255, 255), (278, y, 4, 20))
-
-        pygame.draw.rect(ecra, (100, 100, 100), (500, 50, 80, 500)) # C2 NS
+        pygame.draw.rect(ecra, (100, 100, 100), (500, 50, 80, 500))
         for y in range(50, 550, 40): pygame.draw.rect(ecra, (255, 255, 255), (538, y, 4, 20))
 
-        # Desenhar Semáforos lidos do config
+        # Semáforos
         if 1 in estado_semaforos: pygame.draw.circle(ecra, CORES_SEMAFORO[estado_semaforos[1]], (220, 325), 10)
-        if 3 in estado_semaforos: pygame.draw.circle(ecra, CORES_SEMAFORO[estado_semaforos[3]], (340, 275), 10)
         if 5 in estado_semaforos: pygame.draw.circle(ecra, CORES_SEMAFORO[estado_semaforos[5]], (255, 240), 10)
-        if 2 in estado_semaforos: pygame.draw.circle(ecra, CORES_SEMAFORO[estado_semaforos[2]], (480, 325), 10) # Semáforo C1->C2
-        if 7 in estado_semaforos: pygame.draw.circle(ecra, CORES_SEMAFORO[estado_semaforos[7]], (515, 240), 10) # Semáforo Norte C2
+        if 8 in estado_semaforos: pygame.draw.circle(ecra, CORES_SEMAFORO[estado_semaforos[8]], (305, 355), 10)
+        if 3 in estado_semaforos: pygame.draw.circle(ecra, CORES_SEMAFORO[estado_semaforos[3]], (340, 275), 10) # Via 3 (No C1)
+        
+        if 2 in estado_semaforos: pygame.draw.circle(ecra, CORES_SEMAFORO[estado_semaforos[2]], (480, 325), 10)
+        if 7 in estado_semaforos: pygame.draw.circle(ecra, CORES_SEMAFORO[estado_semaforos[7]], (515, 240), 10)
+        if 9 in estado_semaforos: pygame.draw.circle(ecra, CORES_SEMAFORO[estado_semaforos[9]], (565, 355), 10)
+        if 10 in estado_semaforos: pygame.draw.circle(ecra, CORES_SEMAFORO[estado_semaforos[10]], (600, 275), 10) # Via 10 (No C2)
 
-        # Desenhar Carros (com contorno preto)
         for carro in carros:
             pygame.draw.rect(ecra, carro.cor, carro.rect)
             pygame.draw.rect(ecra, (0, 0, 0), carro.rect, 2)
 
-        # Labels
         ecra.blit(fonte_grande.render("C1", True, (255, 255, 255)), (325, 350))
         ecra.blit(fonte_grande.render("C2", True, (255, 255, 255)), (585, 350))
         
-        # Labels exclusivas para as Vias Geradoras
-        ecra.blit(fonte.render(f"Via 5 (Norte C1) | RTG: {estado_rtg.get(5, 0)}", True, (200, 200, 200)), (110, 20))
-        ecra.blit(fonte.render(f"Via 7 (Norte C2) | RTG: {estado_rtg.get(7, 0)}", True, (200, 200, 200)), (580, 20))
+        # Textos das Vias (Atualizado para a Via 10)
+        ecra.blit(fonte.render(f"Via 5 (Norte) | RTG: {estado_rtg.get(5, 0)}", True, (200, 200, 200)), (90, 20))
+        ecra.blit(fonte.render(f"Via 7 (Norte) | RTG: {estado_rtg.get(7, 0)}", True, (200, 200, 200)), (550, 20))
+        ecra.blit(fonte.render(f"Via 8 (Sul) | RTG: {estado_rtg.get(8, 0)}", True, (200, 200, 200)), (90, 540))
+        ecra.blit(fonte.render(f"Via 9 (Sul) | RTG: {estado_rtg.get(9, 0)}", True, (200, 200, 200)), (550, 540))
         ecra.blit(fonte.render(f"Via 1 (Oeste) | RTG: {estado_rtg.get(1, 0)}", True, (200, 200, 200)), (20, 350))
-        ecra.blit(fonte.render(f"Via 3 (Este) | RTG: {estado_rtg.get(3, 0)}", True, (200, 200, 200)), (650, 230))
+        ecra.blit(fonte.render(f"Via 10 (Este) | RTG: {estado_rtg.get(10, 0)}", True, (200, 200, 200)), (680, 230))
 
         # Painel Inferior
         pygame.draw.rect(ecra, (20, 25, 30), (0, 570, 850, 80))
-        ecra.blit(fonte.render("Controlos: Teclas 1, 3, 5 ou 7 para escolher a via de entrada e alterar o RTG.", True, (150, 150, 150)), (20, 580))
+        ecra.blit(fonte.render("Comando: Escreve <ID da Via> + Tecla TAB + <Novo RTG> e pressiona Enter.", True, (150, 150, 150)), (20, 580))
         
-        if via_selecionada is not None:
-            txt_input = fonte_grande.render(f"A alterar Via {via_selecionada} -> Escreve o novo RTG: {texto_input}_ (Enter para gravar)", True, (255, 200, 50))
-            ecra.blit(txt_input, (20, 610))
+        texto_display = texto_input.replace("\t", " [TAB] ")
+        txt_surface = fonte_grande.render(f"CMC> {texto_display}_", True, (255, 200, 50))
+        ecra.blit(txt_surface, (20, 610))
 
         pygame.display.flip()
         relogio.tick(60)
