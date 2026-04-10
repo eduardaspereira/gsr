@@ -1,5 +1,7 @@
 import asyncio
 import json
+import csv # NOVO: Para gravar o Excel
+import time # NOVO: Para registar o tempo no Excel
 from pysnmp.entity import engine, config
 from pysnmp.entity.rfc3413 import cmdrsp, context
 from pysnmp.carrier.asyncio.dgram import udp
@@ -31,6 +33,7 @@ for r in cfg['roads']:
 
 for tl in cfg['trafficLights']:
     rid = tl['roadIndex']
+    mib[f"{OID_BASE}.4.1.2.{rid}"] = 0 # NOVO: 0=Auto, 1=Forçar Verde, 2=Forçar Vermelho
     mib[f"{OID_BASE}.4.1.3.{rid}"] = 1 
     mib[f"{OID_BASE}.4.1.4.{rid}"] = 0 
     mib[f"{OID_BASE}.4.1.5.{rid}"] = cfg['geral']['algoMinGreenTime']
@@ -47,9 +50,11 @@ class SCSetResponder(cmdrsp.SetCommandResponder):
         novos_varBinds = []
         for oid, val in varBinds:
             oid_str = str(oid)
-            if oid_str in mib and ".3.1.4." in oid_str:
+            # NOVO: Permite alterar o RTG E o Override Manual
+            if oid_str in mib and (".3.1.4." in oid_str or ".4.1.2." in oid_str):
                 mib[oid_str] = int(val)
-                print(f"[SNMP SET] RTG atualizado: {oid_str} -> {int(val)}")
+                tipo = "OVERRIDE" if ".4.1.2." in oid_str else "RTG"
+                print(f"[SNMP SET] {tipo} atualizado: {oid_str} -> {int(val)}")
                 novos_varBinds.append((oid, val))
             else:
                 v2c.apiPDU.setErrorStatus(respPDU, 'noAccess')
@@ -88,7 +93,7 @@ async def main():
 
     ssfr = SistemaSimulacao(mib, cfg)
     
-    ALGORITMO = "RL" # Opções: "ROUND_ROBIN", "HEURISTICA", "RL", "BACKPRESSURE" 
+    ALGORITMO = "HEURISTICA" # Opções: "ROUND_ROBIN", "HEURISTICA", "RL", "BACKPRESSURE" 
 
     if ALGORITMO == "ROUND_ROBIN":
         sd = SistemaDecisaoRoundRobin(mib, cfg)
@@ -103,7 +108,7 @@ async def main():
     # BLOCO DE TREINO RÁPIDO (EXCLUSIVO PARA RL)
     # =====================================================================
     if ALGORITMO == "RL":
-        print("\n[TREINO RL] 🏋️‍♂️ Iniciando treino acelerado (2000 ciclos virtuais)...")
+        print("\n[TREINO RL] Iniciando treino acelerado (2000 ciclos virtuais)...")
         sd.epsilon = 0.5  # Muita exploração inicial para aprender
         
         for i in range(2000):
@@ -118,20 +123,67 @@ async def main():
         sd.epsilon = 0.05 # Reduz exploração para o tempo real
 
     # =====================================================================
+    # PREPARAÇÃO DO FICHEIRO CSV (NOVO)
+    # =====================================================================
+    nome_ficheiro_csv = f"historico_simulacao_{ALGORITMO}.csv"
+    with open(nome_ficheiro_csv, mode='w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(["Tempo (s)", "Algoritmo", "Total Escoados", "Fila Maxima"])
+
+    # =====================================================================
     # LOOP DE EXECUÇÃO EM TEMPO REAL
     # =====================================================================
     async def simulation_loop():
         sim_step = cfg['geral']['simStepDuration']
         iteration = 0
-        print(f"\n🚀 === SC EM EXECUÇÃO (Porta 16161) | Algoritmo: {ALGORITMO} ===")
+        tempo_inicio = time.time()
+        print(f"\n=== SC EM EXECUÇÃO (Porta 16161) | Algoritmo: {ALGORITMO} ===")
+        print(f"📊 Gravando dados em: {nome_ficheiro_csv}")
         
         while True:
             ssfr.run_step(sim_step)
+            
+            # 1. A IA (ou Heurística) atualiza a MIB com a sua decisão
             await sd.update(current_step=sim_step)
             
+            # 2. NOVO: O Override Manual sobrepõe a decisão da IA se estiver ativo
+            for tl in cfg['trafficLights']:
+                rid = tl['roadIndex']
+                modo_manual = mib.get(f"{OID_BASE}.4.1.2.{rid}", 0)
+                
+                if modo_manual == 1:
+                    mib[f"{OID_BASE}.4.1.3.{rid}"] = 2 # Força VERDE
+                    mib[f"{OID_BASE}.4.1.4.{rid}"] = 99 
+                elif modo_manual == 2:
+                    mib[f"{OID_BASE}.4.1.3.{rid}"] = 1 # Força VERMELHO
+                    mib[f"{OID_BASE}.4.1.4.{rid}"] = 99
+            
+            # --- CÁLCULO DAS ESTATÍSTICAS PARA O CSV ---
+            # Total Escoados
+            saidas = ['91', '92', '93', '94']
+            total_escoados = sum(mib.get(f"{OID_BASE}.5.1.4.{link['src']}.{link['dest']}", 0) 
+                                 for link in cfg.get('links', []) 
+                                 if str(link['dest']) in saidas)
+            
+            # Fila Máxima
+            max_fila = 0
+            vias_saida = [91, 92, 93, 94]
+            for r in cfg['roads']:
+                fila_atual = mib.get(f"{OID_BASE}.3.1.6.{r['id']}", 0)
+                if fila_atual > max_fila:
+                    max_fila = fila_atual
+
+            tempo_decorrido = int(time.time() - tempo_inicio)
+
+            # Grava no CSV
+            with open(nome_ficheiro_csv, mode='a', newline='') as file:
+                writer = csv.writer(file)
+                writer.writerow([tempo_decorrido, ALGORITMO, total_escoados, max_fila])
+            # -------------------------------------------
+
             if iteration % 4 == 0:
                 vias = " | ".join([f"V{r['id']}:{mib[f'{OID_BASE}.3.1.6.{r['id']}']}v" for r in cfg['roads'][:4]])
-                print(f"[MONITOR] {vias}")
+                print(f"[MONITOR] {vias} | Escoados: {total_escoados}")
             
             iteration += 1
             await asyncio.sleep(sim_step)
