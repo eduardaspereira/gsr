@@ -1,2 +1,5 @@
 .venv/
 .venv
+historico_simulacao_BACKPRESSURE.csv
+historico_simulacao_HEURISTICA.csv
+historico_simulacao_RL.csv

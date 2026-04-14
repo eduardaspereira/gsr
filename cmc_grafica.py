@@ -3,8 +3,13 @@ import sys
 import asyncio
 import threading
 import json
-import time # NOVO: Necessário para calcular a Vazão por minuto
+import time 
 from pysnmp.hlapi.asyncio import *
+
+# NOVO: Imports para o Servidor de Receção de Traps
+from pysnmp.entity import engine as snmp_engine_mod, config as snmp_config
+from pysnmp.carrier.asyncio.dgram import udp
+from pysnmp.entity.rfc3413 import ntfrcv
 
 # =====================================================================
 # 1. CARREGAR CONFIGURAÇÃO
@@ -16,13 +21,40 @@ estado_semaforos = {tl['roadIndex']: 1 for tl in cfg['trafficLights']}
 estado_filas = {r['id']: r.get('initialCount', 0) for r in cfg['roads']}
 estado_rtg = {r['id']: r.get('rtg', 0) for r in cfg['roads'] if r['type'] == 3}
 estado_override = {tl['roadIndex']: 0 for tl in cfg['trafficLights']} 
-estado_links = {f"{l['src']}.{l['dest']}": 0 for l in cfg.get('links', [])} # NOVO: Lê a passagem de todos os carros!
+estado_links = {f"{l['src']}.{l['dest']}": 0 for l in cfg.get('links', [])} 
 
 snmp_loop = None 
 
+# NOVO: Variável global que guarda o estado do alarme na Consola
+alerta_trap = {"ativo": False, "via": 0, "carros": 0, "expira": 0}
+
 # =====================================================================
-# 2. CLIENTE SNMP
+# 2. CLIENTE SNMP E RECETOR DE TRAPS
 # =====================================================================
+
+# NOVO: Função que é chamada quando uma Trap bate à porta
+def processar_trap(snmpEngine, stateReference, contextEngineId, contextName, varBinds, cbCtx):
+    global alerta_trap
+    via = 0
+    carros = 0
+    for name, val in varBinds:
+        if "2026.1.1.1" in str(name): via = int(val)
+        if "2026.1.1.2" in str(name): carros = int(val)
+    
+    if via > 0:
+        # Ativa o Alarme Visual por 6 segundos!
+        alerta_trap = {"ativo": True, "via": via, "carros": carros, "expira": time.time() + 6.0}
+
+# NOVO: Servidor background que escuta Traps na porta 16216
+async def servidor_traps():
+    snmpEngine = snmp_engine_mod.SnmpEngine()
+    snmp_config.addTransport(snmpEngine, udp.domainName, udp.UdpTransport().openServerMode(('127.0.0.1', 16216)))
+    snmp_config.addV1System(snmpEngine, 'my-area', 'public')
+    snmp_config.addVacmUser(snmpEngine, 2, 'my-area', 'noAuthNoPriv', (1, 3, 6), (1, 3, 6))
+    ntfrcv.NotificationReceiver(snmpEngine, processar_trap)
+    while True:
+        await asyncio.sleep(3600)
+
 async def obter_dados_snmp():
     snmpEngine = SnmpEngine()
     oids = []
@@ -30,7 +62,7 @@ async def obter_dados_snmp():
     for via in estado_filas.keys(): oids.append(ObjectType(ObjectIdentity(f'1.3.6.1.3.2026.1.3.1.6.{via}')))
     for via in estado_rtg.keys(): oids.append(ObjectType(ObjectIdentity(f'1.3.6.1.3.2026.1.3.1.4.{via}')))
     for via in estado_override.keys(): oids.append(ObjectType(ObjectIdentity(f'1.3.6.1.3.2026.1.4.1.2.{via}')))
-    for link in estado_links.keys(): oids.append(ObjectType(ObjectIdentity(f'1.3.6.1.3.2026.1.5.1.4.{link}'))) # NOVO
+    for link in estado_links.keys(): oids.append(ObjectType(ObjectIdentity(f'1.3.6.1.3.2026.1.5.1.4.{link}'))) 
 
     while True:
         try:
@@ -61,7 +93,8 @@ def iniciar_thread_snmp():
     global snmp_loop
     snmp_loop = asyncio.new_event_loop()
     asyncio.set_event_loop(snmp_loop)
-    snmp_loop.run_until_complete(obter_dados_snmp())
+    # NOVO: Corre as duas tarefas em paralelo (O Polling e o Escutador de Traps)
+    snmp_loop.run_until_complete(asyncio.gather(obter_dados_snmp(), servidor_traps()))
 
 # =====================================================================
 # 3. INTERFACE GRÁFICA
@@ -73,6 +106,7 @@ def desenhar_grafo():
     relogio = pygame.time.Clock()
     fonte_pequena = pygame.font.SysFont("Arial", 14, bold=True)
     fonte_grande = pygame.font.SysFont("Courier New", 20, bold=True)
+    fonte_alerta = pygame.font.SysFont("Arial", 22, bold=True) # NOVO
 
     nos = {1: (300, 250), 2: (600, 250), 3: (600, 500), 4: (300, 500)}
 
@@ -96,7 +130,6 @@ def desenhar_grafo():
 
     texto_input = ""
     
-    # Variáveis para cálculo de Vazão
     tempo_anterior = time.time()
     escoados_anterior = 0
     vazao_atual = 0.0
@@ -104,7 +137,6 @@ def desenhar_grafo():
     while True:
         agora = time.time()
         
-        # --- CÁLCULO DE ESTATÍSTICAS ---
         saidas = ['91', '92', '93', '94']
         total_escoados = sum(val for key, val in estado_links.items() if any(key.endswith(f".{s}") for s in saidas))
         
@@ -119,11 +151,10 @@ def desenhar_grafo():
                 max_fila = estado_filas.get(v, 0)
                 max_via = v
 
-        if agora - tempo_anterior >= 15.0: # Atualiza a velocidade a cada 2s
+        if agora - tempo_anterior >= 15.0:
             vazao_atual = ((total_escoados - escoados_anterior) / (agora - tempo_anterior)) * 60.0
             tempo_anterior = agora
             escoados_anterior = total_escoados
-        # -------------------------------
 
         for evento in pygame.event.get():
             if evento.type == pygame.QUIT: pygame.quit(); sys.exit()
@@ -140,7 +171,6 @@ def desenhar_grafo():
 
         ecra.fill((30, 35, 40)) 
 
-        # DESENHAR GRAFO
         for via_id, (p_origem, p_destino) in arestas.items():
             cor_linha = (80, 80, 80) 
             if via_id in estado_semaforos:
@@ -171,14 +201,25 @@ def desenhar_grafo():
             txt_surface = fonte_grande.render(f"C{nid}", True, (255, 255, 255))
             ecra.blit(txt_surface, txt_surface.get_rect(center=pos))
 
-        # --- SCOREBOARD ESTATÍSTICO (TOPO) ---
+        # --- SCOREBOARD ESTATÍSTICO ---
         pygame.draw.rect(ecra, (15, 20, 25), (0, 0, 900, 70))
         pygame.draw.line(ecra, (50, 200, 50), (0, 70), (900, 70), 2)
         ecra.blit(fonte_grande.render("METRICAS DE REDE", True, (255, 255, 255)), (10, 10))
         stats_str = f"Escoados: {total_escoados} v | Vazão: {vazao_atual:.1f} v/min | Ocupação Média: {ocupacao_media:.1f} v/via | Pior Fila: {max_fila}v (Via {max_via})"
         ecra.blit(fonte_pequena.render(stats_str, True, (200, 200, 200)), (10, 40))
 
-        # --- CONSOLA DE COMANDOS (FUNDO) ---
+        # --- NOVO: BARRA DE ALERTA TRAP (PISCA A VERMELHO) ---
+        if alerta_trap["ativo"]:
+            if agora < alerta_trap["expira"]:
+                if int(agora * 2) % 2 == 0: # Pisca a cada 0.5s
+                    pygame.draw.rect(ecra, (200, 40, 40), (0, 72, 900, 35))
+                    alerta_txt = f"ALERTA SNMP TRAP: Congestionamento Crítico na Via {alerta_trap['via']} ({alerta_trap['carros']} veículos!)"
+                    txt_surface = fonte_alerta.render(alerta_txt, True, (255, 255, 255))
+                    ecra.blit(txt_surface, txt_surface.get_rect(center=(450, 89)))
+            else:
+                alerta_trap["ativo"] = False # Desliga passado 6 segundos
+
+        # --- CONSOLA DE COMANDOS ---
         pygame.draw.rect(ecra, (20, 25, 30), (0, 600, 900, 100))
         status_rtg = f"RTGs: O(101)={estado_rtg.get(101,0)} | N(102)={estado_rtg.get(102,0)} | E(103)={estado_rtg.get(103,0)} | S(104)={estado_rtg.get(104,0)}"
         ecra.blit(fonte_pequena.render(status_rtg, True, (150, 200, 255)), (20, 610))
