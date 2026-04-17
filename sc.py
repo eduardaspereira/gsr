@@ -26,6 +26,8 @@ OID_BASE = "1.3.6.1.3.2026.1"
 mib[f"{OID_BASE}.1.2.0"] = cfg['geral']['simStepDuration']
 mib[f"{OID_BASE}.1.4.0"] = cfg['geral']['algoMinGreenTime']
 mib[f"{OID_BASE}.1.5.0"] = cfg['geral']['algoYellowTime']
+mib[f"{OID_BASE}.1.6.0"] = 4  # Algoritmo: 1=ROUND_ROBIN, 2=HEURISTICA, 3=RL, 4=BACKPRESSURE (padrão)
+mib[f"{OID_BASE}.1.7.0"] = 0  # Tempo de execução em segundos
 
 for r in cfg['roads']:
     rid = r['id']
@@ -52,10 +54,15 @@ class SCSetResponder(cmdrsp.SetCommandResponder):
         novos_varBinds = []
         for oid, val in varBinds:
             oid_str = str(oid)
-            if oid_str in mib and (".3.1.4." in oid_str or ".4.1.2." in oid_str):
+            if oid_str in mib and (".3.1.4." in oid_str or ".4.1.2." in oid_str or ".1.6.0" in oid_str):
                 mib[oid_str] = int(val)
-                tipo = "OVERRIDE" if ".4.1.2." in oid_str else "RTG"
-                print(f"[SNMP SET] {tipo} atualizado: {oid_str} -> {int(val)}")
+                if ".1.6.0" in oid_str:
+                    algo_map = {1: "ROUND_ROBIN", 2: "HEURISTICA", 3: "RL", 4: "BACKPRESSURE"}
+                    algo_nome = algo_map.get(int(val), "DESCONHECIDO")
+                    print(f"[SNMP SET] ALGORITMO alterado para: {algo_nome}")
+                else:
+                    tipo = "OVERRIDE" if ".4.1.2." in oid_str else "RTG"
+                    print(f"[SNMP SET] {tipo} atualizado: {oid_str} -> {int(val)}")
                 novos_varBinds.append((oid, val))
             else:
                 v2c.apiPDU.setErrorStatus(respPDU, 'noAccess')
@@ -110,19 +117,30 @@ async def main():
     SCSetResponder(snmp_engine, snmp_context)
     SCGetResponder(snmp_engine, snmp_context)
 
+    # Mapeamento de algoritmos
+    ALGO_MAP = {1: "ROUND_ROBIN", 2: "HEURISTICA", 3: "RL", 4: "BACKPRESSURE"}
+    ALGO_INVERSE = {v: k for k, v in ALGO_MAP.items()}
+    
+    # Função para criar o sistema de decisão
+    def criar_sd(algoritmo_nome):
+        if algoritmo_nome == "ROUND_ROBIN":
+            return SistemaDecisaoRoundRobin(mib, cfg)
+        elif algoritmo_nome == "HEURISTICA":
+            return SistemaDecisaoOcupacao(mib, cfg)
+        elif algoritmo_nome == "RL":
+            return SistemaDecisaoRL(mib, cfg)
+        else:
+            return SistemaDecisaoBackpressure(mib, cfg)
+
     ssfr = SistemaSimulacao(mib, cfg)
     
-    ALGORITMO = "BACKPRESSURE" # Opções: "ROUND_ROBIN", "HEURISTICA", "RL", "BACKPRESSURE" 
-
-    if ALGORITMO == "ROUND_ROBIN":
-        sd = SistemaDecisaoRoundRobin(mib, cfg)
-    elif ALGORITMO == "HEURISTICA":
-        sd = SistemaDecisaoOcupacao(mib, cfg)
-    elif ALGORITMO == "RL":
-        sd = SistemaDecisaoRL(mib, cfg)
-    else:
-        sd = SistemaDecisaoBackpressure(mib, cfg)
-
+    # Ler algoritmo da MIB
+    algo_id = mib.get(f"{OID_BASE}.1.6.0", 4)
+    ALGORITMO = ALGO_MAP.get(algo_id, "BACKPRESSURE")
+    
+    sd = criar_sd(ALGORITMO)
+    
+    # Treino RL se necessário
     if ALGORITMO == "RL":
         print("\n[TREINO RL] Iniciando treino acelerado (2000 ciclos virtuais)...")
         sd.epsilon = 0.5 
@@ -141,15 +159,56 @@ async def main():
         writer.writerow(["Tempo (s)", "Algoritmo", "Total Escoados", "Fila Maxima"])
 
     async def simulation_loop():
+        nonlocal ALGORITMO, sd, ssfr, nome_ficheiro_csv
+        
         sim_step = cfg['geral']['simStepDuration']
         iteration = 0
         tempo_inicio = time.time()
         tempo_ultimo_trap = {} # Para não spammar a rede
+        algo_anterior = ALGORITMO
 
         print(f"\n=== SC EM EXECUÇÃO (Porta 16161) | Algoritmo: {ALGORITMO} ===")
         print(f"A gravar dados em: {nome_ficheiro_csv}")
         
         while True:
+            # --- VERIFICAR SE ALGORITMO FOI ALTERADO ---
+            algo_id_atual = mib.get(f"{OID_BASE}.1.6.0", 4)
+            ALGORITMO = ALGO_MAP.get(algo_id_atual, "BACKPRESSURE")
+            
+            if ALGORITMO != algo_anterior:
+                print(f"\n[ALTERAÇÃO] Mudando algoritmo de {algo_anterior} para {ALGORITMO}...")
+                
+                # Reiniciar tudo
+                ssfr = SistemaSimulacao(mib, cfg)
+                sd = criar_sd(ALGORITMO)
+                tempo_inicio = time.time()
+                tempo_ultimo_trap = {}
+                iteration = 0
+                
+                # Novo ficheiro de histórico
+                nome_ficheiro_csv = f"historico_simulacao_{ALGORITMO}.csv"
+                with open(nome_ficheiro_csv, mode='w', newline='') as file:
+                    writer = csv.writer(file, delimiter=';') 
+                    writer.writerow(["Tempo (s)", "Algoritmo", "Total Escoados", "Fila Maxima"])
+                
+                # Treino RL se necessário
+                if ALGORITMO == "RL":
+                    print("[TREINO RL] Iniciando treino acelerado (2000 ciclos virtuais)...")
+                    sd.epsilon = 0.5 
+                    for i in range(2000):
+                        ssfr.run_step(5) 
+                        await sd.update(fast_forward_step=5)
+                        if i % 500 == 0: print(f"[TREINO RL] Progresso: {i}/2000 ciclos | Estados na memória: {len(sd.q_table)}")
+                    sd.epsilon = 0.05 
+                    print("[TREINO RL] Treino concluído!")
+                
+                algo_anterior = ALGORITMO
+                print(f"[ALTERAÇÃO] Simulação reiniciada com {ALGORITMO}!")
+            
+            # Atualizar tempo de execução na MIB
+            tempo_decorrido = int(time.time() - tempo_inicio)
+            mib[f"{OID_BASE}.1.7.0"] = tempo_decorrido
+            
             ssfr.run_step(sim_step)
             await sd.update(current_step=sim_step)
             
@@ -187,15 +246,13 @@ async def main():
                     if fila_atual > max_fila:
                         max_fila = fila_atual
 
-            tempo_decorrido = int(time.time() - tempo_inicio)
-
             with open(nome_ficheiro_csv, mode='a', newline='') as file:
                 writer = csv.writer(file, delimiter=';')
                 writer.writerow([tempo_decorrido, ALGORITMO, total_escoados, max_fila])
 
             if iteration % 4 == 0:
                 vias = " | ".join([f"V{r['id']}:{mib[f'{OID_BASE}.3.1.6.{r['id']}']}v" for r in cfg['roads'][:4]])
-                print(f"[MONITOR] {vias} | Escoados: {total_escoados}")
+                print(f"[MONITOR] {vias} | Escoados: {total_escoados} | Algoritmo: {ALGORITMO}")
             
             iteration += 1
             await asyncio.sleep(sim_step)
