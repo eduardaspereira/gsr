@@ -114,7 +114,7 @@ async def main():
 
     ssfr = SistemaSimulacao(mib, cfg)
     
-    ALGORITMO = "RL" # Opções: "ROUND_ROBIN", "HEURISTICA", "RL", "BACKPRESSURE" 
+    ALGORITMO = "BACKPRESSURE" # Opções: "ROUND_ROBIN", "HEURISTICA", "RL", "BACKPRESSURE" 
 
     if ALGORITMO == "ROUND_ROBIN":
         sd = SistemaDecisaoRoundRobin(mib, cfg)
