@@ -6,8 +6,6 @@ from pysnmp.entity import engine, config
 from pysnmp.entity.rfc3413 import cmdrsp, context
 from pysnmp.carrier.asyncio.dgram import udp
 from pysnmp.proto.api import v2c
-
-# NOVO: Imports exclusivos para disparar a Trap SNMP
 from pysnmp.hlapi.asyncio import sendNotification, CommunityData, UdpTransportTarget, ContextData, NotificationType, ObjectIdentity, Integer32
 from pysnmp.hlapi.asyncio import SnmpEngine as hlapiSnmpEngine
 
@@ -84,7 +82,7 @@ class SCGetResponder(cmdrsp.GetCommandResponder):
         v2c.apiPDU.setVarBinds(respPDU, novos_varBinds)
         snmpEngine.msgAndPduDsp.returnResponsePdu(snmpEngine, messageProcessingModel, securityModel, securityName, securityLevel, contextEngineId, contextName, pduVersion, respPDU, maxSizeResponseScopedPDU, stateReference, {})
 
-# NOVO: Função que cria e envia a Trap SNMP
+# Função que cria e envia a Trap SNMP
 async def disparar_trap(via, carros):
     try:
         await sendNotification(
@@ -134,22 +132,22 @@ async def main():
             await sd.update(fast_forward_step=5)
             if i % 500 == 0: print(f"[TREINO RL] Progresso: {i}/2000 ciclos | Estados na memória: {len(sd.q_table)}")
 
-        print("[TREINO RL] ✅ Treino concluído! Agente pronto para agir.")
+        print("[TREINO RL] Treino concluído! Agente pronto para agir.")
         sd.epsilon = 0.05 
 
     nome_ficheiro_csv = f"historico_simulacao_{ALGORITMO}.csv"
     with open(nome_ficheiro_csv, mode='w', newline='') as file:
-        writer = csv.writer(file, delimiter=';') # Mantive o ponto e vírgula!
+        writer = csv.writer(file, delimiter=';') 
         writer.writerow(["Tempo (s)", "Algoritmo", "Total Escoados", "Fila Maxima"])
 
     async def simulation_loop():
         sim_step = cfg['geral']['simStepDuration']
         iteration = 0
         tempo_inicio = time.time()
-        tempo_ultimo_trap = {} # NOVO: Para não spammar a rede
+        tempo_ultimo_trap = {} # Para não spammar a rede
 
         print(f"\n=== SC EM EXECUÇÃO (Porta 16161) | Algoritmo: {ALGORITMO} ===")
-        print(f"📊 Gravando dados em: {nome_ficheiro_csv}")
+        print(f"A gravar dados em: {nome_ficheiro_csv}")
         
         while True:
             ssfr.run_step(sim_step)
@@ -177,7 +175,7 @@ async def main():
                 if r['id'] not in vias_saida:
                     fila_atual = mib.get(f"{OID_BASE}.3.1.6.{r['id']}", 0)
                     
-                    # --- NOVO: LÓGICA DE ALARME ---
+                    # --- LÓGICA DE ALARME ---
                     if fila_atual >= 20:
                         agora = time.time()
                         # Dispara a Trap no máximo a cada 10s por via

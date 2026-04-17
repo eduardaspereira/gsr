@@ -22,7 +22,7 @@ class SistemaDecisaoOcupacao:
         # 2. Varre todos os cruzamentos
         for cr in self.cfg['crossroads']:
             cr_id = cr['id']
-            # Filtra os semáforos deste cruzamento (usa crID ou tlCrossroadID conforme o teu config)
+            # Filtra os semáforos deste cruzamento (usa crID ou tlCrossroadID conforme o config)
             semaforos = [tl for tl in self.cfg['trafficLights'] if tl.get('crID') == cr_id or tl.get('tlCrossroadID') == cr_id]
             
             for tl in semaforos:
