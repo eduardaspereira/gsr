@@ -107,7 +107,11 @@ class SCSetResponder(cmdrsp.SetCommandResponder):
                     # 2. Rate Limiting Inteligente (Baldes separados por tipo de comando)
                     chave_limite = f"{cliente_id}_{cmd_type}"
                     if chave_limite in historico_ips and (agora - historico_ips[chave_limite]) < 0.2:
-                        print(f"[SEGURANÇA] Bloqueio DoS! Ritmo excessivo de '{cmd_type}' do cliente {cliente_id}.")
+                        
+                        # Só imprimimos o aviso de DoS se NÃO for o PULL_STATE (evita spam no terminal após paragens)
+                        if cmd_type != "PULL_STATE":
+                            print(f"[SEGURANÇA] Bloqueio DoS! Ritmo excessivo de '{cmd_type}' do cliente {cliente_id}.")
+                        
                         v2c.apiPDU.setErrorStatus(respPDU, 'genErr')
                         novos_varBinds.append((oid, val))
                         continue

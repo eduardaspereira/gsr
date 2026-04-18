@@ -1,10 +1,27 @@
+import pygame
+import sys
+import asyncio
+import threading
+import json
+import time 
+import networkx as nx
+import math, re
 import base64
 import getpass
 from cryptography.fernet import Fernet, InvalidToken
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+from pysnmp.hlapi.asyncio import *
+from pysnmp.entity import engine as snmp_engine_mod, config as snmp_config
+from pysnmp.carrier.asyncio.dgram import udp
+from pysnmp.entity.rfc3413 import ntfrcv
 
-print("=== INICIALIZAÇÃO SEGURA ===")
+# =====================================================================
+# 1. SEGURANÇA E ARRANQUE (O COFRE)
+# =====================================================================
+print("===============================================")
+print("=== INICIALIZAÇÃO SEGURA DA CONSOLA GRÁFICA ===")
+print("===============================================")
 password = getpass.getpass("Introduz a password mestra para destrancar a chave: ").encode()
 
 salt = b'GSR_UM_2026'
@@ -17,32 +34,16 @@ try:
         chave_encriptada = f.read()
     CHAVE_SECRETA = cofre_cipher.decrypt(chave_encriptada)
     cipher = Fernet(CHAVE_SECRETA)
-    print("Chave carregada com sucesso!")
+    print("[OK] Chave carregada com sucesso! Ligação Segura Ativa.\n")
 except Exception:
-    print("ERRO: Password incorreta ou ficheiro 'seguranca.key' em falta!")
-    exit(1)
+    print("[ERRO] Password incorreta ou ficheiro 'seguranca.key' em falta!")
+    sys.exit(1)
 
 OID_TUNEL = "1.3.6.1.3.2026.99.1.0"
 
-
-import pygame
-import sys
-import asyncio
-import threading
-import json
-import time 
-import networkx as nx
-import math, re
-from pysnmp.hlapi.asyncio import *
-
-from pysnmp.entity import engine as snmp_engine_mod, config as snmp_config
-from pysnmp.carrier.asyncio.dgram import udp
-from pysnmp.entity.rfc3413 import ntfrcv
-
 # =====================================================================
-# FUNÇÃO DE GERAÇÃO DINÂMICA DA TOPOLOGIA
+# 2. FUNÇÕES BASE DA TOPOLOGIA DINÂMICA
 # =====================================================================
-
 def gerar_topologia_dinamica(cfg, resolucao_base=(900, 700), padding=120):
     crossroads = cfg.get('crossroads', [])
     num_crossroads = len(crossroads)
@@ -134,9 +135,6 @@ def gerar_topologia_dinamica(cfg, resolucao_base=(900, 700), padding=120):
     
     return nos_pos_px, arestas_px
 
-# =====================================================================
-# CLASSE DE DROPDOWN LIST
-# =====================================================================
 class DropdownList:
     def __init__(self, x, y, width, height, options, fonte_pequena, selected_idx=3):
         self.x, self.y = x, y
@@ -188,7 +186,7 @@ class DropdownList:
         return None
 
 # =====================================================================
-# SNMP E MIB (VARIÁVEIS GLOBAIS)
+# 3. SNMP E MIB GLOBALS
 # =====================================================================
 cfg = {}
 estado_semaforos = {}
@@ -197,13 +195,16 @@ estado_rtg = {}
 estado_override = {}
 estado_links = {}
 
-with open('config2.json', 'r') as f:
-    cfg = json.load(f)
+try:
+    with open('config2.json', 'r') as f:
+        cfg = json.load(f)
+except Exception:
+    cfg = {'roads': [], 'trafficLights': []} # Fallback se não existir
 
-estado_semaforos.update({tl['roadIndex']: 1 for tl in cfg['trafficLights']})
-estado_filas.update({r['id']: r.get('initialCount', 0) for r in cfg['roads']})
-estado_rtg.update({r['id']: r.get('rtg', 0) for r in cfg['roads'] if r['type'] == 3})
-estado_override.update({tl['roadIndex']: 0 for tl in cfg['trafficLights']})
+estado_semaforos.update({tl['roadIndex']: 1 for tl in cfg.get('trafficLights', [])})
+estado_filas.update({r['id']: r.get('initialCount', 0) for r in cfg.get('roads', [])})
+estado_rtg.update({r['id']: r.get('rtg', 0) for r in cfg.get('roads', []) if r['type'] == 3})
+estado_override.update({tl['roadIndex']: 0 for tl in cfg.get('trafficLights', [])})
 estado_links.update({f"{l['src']}.{l['dest']}": 0 for l in cfg.get('links', [])})
 
 snmp_loop = None 
@@ -231,46 +232,28 @@ async def servidor_traps():
     ntfrcv.NotificationReceiver(engine, processar_trap)
     while True: await asyncio.sleep(3600)
 
-async def obter_dados_snmp():
-    engine = SnmpEngine()
-    while True:
-        try:
-            payload = {"comando": "PULL_STATE"}
-            payload_encriptado = cipher.encrypt(json.dumps(payload).encode('utf-8'))
-
-            errorInd, errorStat, errorIdx, varBinds = await setCmd(
-                engine, CommunityData('public', mpModel=1),
-                UdpTransportTarget(('127.0.0.1', 16161), timeout=1, retries=0),
-                ContextData(),
-                ObjectType(ObjectIdentity(OID_TUNEL), OctetString(payload_encriptado))
-            )
-
-            if not errorInd and not errorStat:
-                for name, val in varBinds:
-                    if str(name) == OID_TUNEL:
-                        # Desencriptar a resposta gorda enviada pelo SC
-                        resposta_json = cipher.decrypt(bytes(val)).decode('utf-8')
-                        dados = json.loads(resposta_json)
-
-                        # Atualizar as variáveis globais da interface gráfica
-                        builtins._tempo_execucao_snmp = dados.get("tempo", 0)
-                        builtins._algo_id_snmp = dados.get("algo_id", 4)
-                        
-                        # Atualizar dicionários convertendo as chaves de string para int onde necessário
-                        for k, v in dados.get("filas", {}).items(): estado_filas[int(k)] = v
-                        for k, v in dados.get("semaforos", {}).items(): estado_semaforos[int(k)] = v
-                        for k, v in dados.get("rtgs", {}).items(): estado_rtg[int(k)] = v
-                        for k, v in dados.get("overrides", {}).items(): estado_override[int(k)] = v
-                        for k, v in dados.get("links", {}).items(): estado_links[k] = v
-
-        except Exception as e:
-            pass 
-        
-        await asyncio.sleep(3)
-
 # =====================================================================
-# FUNÇÕES DE ENVIO (A USAR O TÚNEL SEGURO JSON)
+# 4. FUNÇÕES DO TÚNEL SEGURO (SET e GETs)
 # =====================================================================
+async def enviar_comando_tunel(ip, porta, comunidade, payload_dict):
+    snmpEngine = SnmpEngine()
+    payload_json = json.dumps(payload_dict).encode('utf-8')
+    payload_encriptado = cipher.encrypt(payload_json)
+    
+    errorIndication, errorStatus, errorIndex, varBinds = await setCmd(
+        snmpEngine,
+        CommunityData(comunidade, mpModel=1),
+        UdpTransportTarget((ip, porta), timeout=1, retries=0),
+        ContextData(),
+        ObjectType(ObjectIdentity(OID_TUNEL), OctetString(payload_encriptado))
+    )
+    snmpEngine.transportDispatcher.closeDispatcher()
+    return errorIndication, errorStatus, varBinds
+
+def disparar_em_fundo(corotina):
+    """Cria uma thread limpa e isolada para enviar comandos SET sem interromper os GETs"""
+    threading.Thread(target=lambda: asyncio.run(corotina), daemon=True).start()
+
 async def enviar_algoritmo_snmp(algo_id):
     payload = {"comando": "SET_ALG", "alg_id": algo_id}
     await enviar_comando_tunel('127.0.0.1', 16161, 'public', payload)
@@ -282,6 +265,34 @@ async def enviar_novo_rtg_snmp(via, novo_rtg):
 async def enviar_override_snmp(via, modo):
     payload = {"comando": "SET_OVERRIDE", "via": via, "modo": modo}
     await enviar_comando_tunel('127.0.0.1', 16161, 'public', payload)
+
+async def obter_dados_snmp():
+    while True:
+        try:
+            payload = {"comando": "PULL_STATE"}
+            errorInd, errorStat, varBinds = await enviar_comando_tunel('127.0.0.1', 16161, 'public', payload)
+
+            if not errorInd and not errorStat:
+                for name, val in varBinds:
+                    if str(name) == OID_TUNEL:
+                        # Desencriptar a resposta enviada pelo SC
+                        resposta_json = cipher.decrypt(bytes(val)).decode('utf-8')
+                        dados = json.loads(resposta_json)
+
+                        # Atualizar variáveis globais
+                        builtins._tempo_execucao_snmp = dados.get("tempo", 0)
+                        builtins._algo_id_snmp = dados.get("algo_id", 4)
+                        
+                        for k, v in dados.get("filas", {}).items(): estado_filas[int(k)] = v
+                        for k, v in dados.get("semaforos", {}).items(): estado_semaforos[int(k)] = v
+                        for k, v in dados.get("rtgs", {}).items(): estado_rtg[int(k)] = v
+                        for k, v in dados.get("overrides", {}).items(): estado_override[int(k)] = v
+                        for k, v in dados.get("links", {}).items(): estado_links[k] = v
+        except Exception:
+            pass 
+        
+        await asyncio.sleep(0.5)
+
 def iniciar_thread_snmp():
     global snmp_loop
     snmp_loop = asyncio.new_event_loop()
@@ -289,13 +300,13 @@ def iniciar_thread_snmp():
     snmp_loop.run_until_complete(asyncio.gather(obter_dados_snmp(), servidor_traps()))
 
 # =====================================================================
-# 3. INTERFACE GRÁFICA
+# 5. INTERFACE GRÁFICA MAIN LOOP
 # =====================================================================
 def desenhar_grafo():
     global confirmacao_algoritmo, cfg, nos_base, arestas_base
     pygame.init()
     ecra = pygame.display.set_mode((900, 700), pygame.RESIZABLE)
-    pygame.display.set_caption("Dashboard Topológico - Filas de Espera")
+    pygame.display.set_caption("Dashboard Seguro (Fase B) - Gestão de Tráfego")
     relogio = pygame.time.Clock()
     
     RESOLUCAO_BASE = (900, 700)
@@ -335,13 +346,15 @@ def desenhar_grafo():
         ex, ey = tamanho_atual[0] / RESOLUCAO_BASE[0], tamanho_atual[1] / RESOLUCAO_BASE[1]
         eg = min(ex, ey)
         
-        v_out = [str(r['id']) for r in cfg['roads'] if r['type'] == 2]
-        v_in = [r['id'] for r in cfg['roads'] if r['type'] == 3]
+        v_out = [str(r['id']) for r in cfg.get('roads', []) if r['type'] == 2]
+        v_in = [r['id'] for r in cfg.get('roads', []) if r['type'] == 3]
         total_escoados = sum(val for key, val in estado_links.items() if any(key.endswith(f".{s}") for s in v_out))
-        oc_media = sum(estado_filas.get(v, 0) for v in [r['id'] for r in cfg['roads'] if r['type'] == 1]) / max(1, len([r['id'] for r in cfg['roads'] if r['type'] == 1]))
+        
+        vias_internas = [r['id'] for r in cfg.get('roads', []) if r['type'] == 1]
+        oc_media = sum(estado_filas.get(v, 0) for v in vias_internas) / max(1, len(vias_internas))
         
         max_f, max_v = 0, 0
-        for v in v_in + [r['id'] for r in cfg['roads'] if r['type'] == 1]:
+        for v in v_in + vias_internas:
             if estado_filas.get(v, 0) > max_f: max_f, max_v = estado_filas.get(v, 0), v
 
         algo_snmp = getattr(builtins, '_algo_id_snmp', 4)
@@ -355,7 +368,7 @@ def desenhar_grafo():
             vazao_atual = ((total_escoados - escoados_anterior) / (agora - tempo_anterior)) * 60.0
             tempo_anterior, escoados_anterior = agora, total_escoados
 
-        # --- TRATAMENTO DE EVENTOS (TECLADO E RATO) ---
+        # --- TRATAMENTO DE EVENTOS ---
         for ev in pygame.event.get():
             if ev.type == pygame.QUIT: pygame.quit(); sys.exit()
             elif ev.type == pygame.VIDEORESIZE: tamanho_atual = ev.size
@@ -398,7 +411,7 @@ def desenhar_grafo():
                     res = dropdown.handle_click(mx_mouse, my_mouse)
                     if res:
                         confirmacao_algoritmo = {"ativo": True, "tempo": time.time()}
-                        asyncio.run_coroutine_threadsafe(enviar_algoritmo_snmp(res), snmp_loop)
+                        disparar_em_fundo(enviar_algoritmo_snmp(res))
                         continue
 
                 if via_selecionada and via_selecionada in centros_vias:
@@ -415,13 +428,13 @@ def desenhar_grafo():
                         btn_green = pygame.Rect(cx_box + escalar_valor(115, eg), cy_box + escalar_valor(75, eg), escalar_valor(55, eg), escalar_valor(30, eg))
                         
                         if btn_auto.collidepoint(mx_mouse, my_mouse):
-                            asyncio.run_coroutine_threadsafe(enviar_override_snmp(via_selecionada, 0), snmp_loop)
+                            disparar_em_fundo(enviar_override_snmp(via_selecionada, 0))
                             via_selecionada = None
                         elif btn_red.collidepoint(mx_mouse, my_mouse):
-                            asyncio.run_coroutine_threadsafe(enviar_override_snmp(via_selecionada, 2), snmp_loop)
+                            disparar_em_fundo(enviar_override_snmp(via_selecionada, 2))
                             via_selecionada = None
                         elif btn_green.collidepoint(mx_mouse, my_mouse):
-                            asyncio.run_coroutine_threadsafe(enviar_override_snmp(via_selecionada, 1), snmp_loop)
+                            disparar_em_fundo(enviar_override_snmp(via_selecionada, 1))
                             via_selecionada = None
                     else:
                         via_selecionada = None
@@ -434,13 +447,12 @@ def desenhar_grafo():
 
             elif ev.type == pygame.KEYDOWN:
                 if via_selecionada:
-                    # Só deixa digitar RTG se for via de entrada
                     if via_selecionada in v_in:
                         if ev.key == pygame.K_BACKSPACE: 
                             texto_rtg_via = texto_rtg_via[:-1]
                         elif ev.key == pygame.K_RETURN:
                             if texto_rtg_via.isdigit():
-                                asyncio.run_coroutine_threadsafe(enviar_novo_rtg_snmp(via_selecionada, int(texto_rtg_via)), snmp_loop)
+                                disparar_em_fundo(enviar_novo_rtg_snmp(via_selecionada, int(texto_rtg_via)))
                             via_selecionada = None
                         elif ev.unicode.isdigit(): 
                             texto_rtg_via += ev.unicode
@@ -449,9 +461,9 @@ def desenhar_grafo():
                     elif ev.key == pygame.K_RETURN:
                         try:
                             p = texto_input.strip().split(' ')
-                            if len(p) == 2 and p[0].upper() == "ALG": asyncio.run_coroutine_threadsafe(enviar_algoritmo_snmp(int(p[1])), snmp_loop)
-                            elif len(p) == 2: asyncio.run_coroutine_threadsafe(enviar_novo_rtg_snmp(int(p[0]), int(p[1])), snmp_loop)
-                            elif len(p) == 3 and p[0].upper() == 'O': asyncio.run_coroutine_threadsafe(enviar_override_snmp(int(p[1]), int(p[2])), snmp_loop)
+                            if len(p) == 2 and p[0].upper() == "ALG": disparar_em_fundo(enviar_algoritmo_snmp(int(p[1])))
+                            elif len(p) == 2: disparar_em_fundo(enviar_novo_rtg_snmp(int(p[0]), int(p[1])))
+                            elif len(p) == 3 and p[0].upper() == 'O': disparar_em_fundo(enviar_override_snmp(int(p[1]), int(p[2])))
                         except: pass
                         texto_input = ""
                     elif ev.unicode.isprintable(): texto_input += ev.unicode
@@ -564,7 +576,6 @@ def desenhar_grafo():
             pygame.draw.rect(ecra, (20, 25, 30), (0, y_c, tamanho_atual[0], h_c))
             pygame.draw.line(ecra, (50, 150, 50), (0, y_c), (tamanho_atual[0], y_c), 2)
             
-            # MOSTRAR RTGs APENAS DAS VIAS DE ENTRADA A AZUL FORTE
             rtg_s = f"RTGs (Entradas): {' | '.join([f'V{v}={estado_rtg.get(v,0)}' for v in sorted(v_in)])}"
             ecra.blit(f_p.render(rtg_s, True, (50, 150, 255)), (escalar_valor(20, eg), y_c + escalar_valor(15, eg)))
             
@@ -599,19 +610,17 @@ def desenhar_grafo():
             titulo_menu = f_p.render(f"V{via_selecionada} | Configs", True, (255, 255, 255))
             ecra.blit(titulo_menu, (cx_box + escalar_valor(10, eg), cy_box + escalar_valor(10, eg)))
             
-            # SÓ MOSTRA O RTG SE FOR VIA DE ENTRADA
             if via_selecionada in v_in:
-                lbl_rtg = f_p.render("RTG:", True, (50, 150, 255)) # Azul forte a acompanhar a CMC
+                lbl_rtg = f_p.render("RTG:", True, (50, 150, 255))
                 ecra.blit(lbl_rtg, (cx_box + escalar_valor(10, eg), cy_box + escalar_valor(40, eg)))
                 
                 caixa_input_rtg = pygame.Rect(cx_box + escalar_valor(50, eg), cy_box + escalar_valor(35, eg), escalar_valor(80, eg), escalar_valor(25, eg))
                 pygame.draw.rect(ecra, (20, 25, 30), caixa_input_rtg)
-                pygame.draw.rect(ecra, (50, 150, 255), caixa_input_rtg, 1) # Borda da caixa de input também a azul
+                pygame.draw.rect(ecra, (50, 150, 255), caixa_input_rtg, 1)
                 
                 txt_rtg_sur = f_p.render(texto_rtg_via + "_", True, (255, 255, 255))
                 ecra.blit(txt_rtg_sur, (cx_box + escalar_valor(55, eg), cy_box + escalar_valor(40, eg)))
             else:
-                # Se não for entrada, indica que não permite edição de RTG
                 lbl_no_rtg = f_p.render("S/ RTG (Via Interna/Saída)", True, (150, 150, 150))
                 ecra.blit(lbl_no_rtg, (cx_box + escalar_valor(10, eg), cy_box + escalar_valor(40, eg)))
             
@@ -627,11 +636,8 @@ def desenhar_grafo():
             pygame.draw.rect(ecra, (50, 200, 50), btn_green)
             ecra.blit(f_p.render("GREEN", True, (255, 255, 255)), (cx_box + escalar_valor(118, eg), cy_box + escalar_valor(82, eg)))
 
-        if 'dropdown' in locals():
-            dropdown.draw(ecra)
-            
-        if 'dropdown_mapa' in locals():
-            dropdown_mapa.draw(ecra)
+        if 'dropdown' in locals(): dropdown.draw(ecra)
+        if 'dropdown_mapa' in locals(): dropdown_mapa.draw(ecra)
 
         if confirmacao_algoritmo["ativo"]:
             if agora - confirmacao_algoritmo["tempo"] < 3.0:
@@ -639,7 +645,7 @@ def desenhar_grafo():
                 ov = pygame.Surface(tamanho_atual); ov.set_alpha(100); ov.fill((0,0,0)); ecra.blit(ov, (0,0))
                 pygame.draw.rect(ecra, (40, 60, 80), ((tamanho_atual[0]-cw)//2, (tamanho_atual[1]-ch)//2, cw, ch))
                 pygame.draw.rect(ecra, (100, 200, 100), ((tamanho_atual[0]-cw)//2, (tamanho_atual[1]-ch)//2, cw, ch), 3)
-                ms = f_g.render("O sistema irá reiniciar com o novo algoritmo", True, (100, 200, 100))
+                ms = f_g.render("A enviar alteração de Algoritmo...", True, (100, 200, 100))
                 ecra.blit(ms, ms.get_rect(center=(tamanho_atual[0]//2, tamanho_atual[1]//2)))
             else: confirmacao_algoritmo["ativo"] = False
 
