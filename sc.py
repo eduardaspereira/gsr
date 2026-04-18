@@ -1,3 +1,8 @@
+import base64
+import getpass
+from cryptography.fernet import Fernet, InvalidToken
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 import asyncio
 import json
 import csv 
@@ -15,7 +20,36 @@ from sd_RL import SistemaDecisaoRL
 from sd_heuristicaocupacao import SistemaDecisaoOcupacao
 from sd_roundrobin import SistemaDecisaoRoundRobin
 
-# 1. Carregamento da configuração
+# =====================================================================
+# 1. SEGURANÇA E ARRANQUE (O COFRE)
+# =====================================================================
+print("===============================================")
+print("=== INICIALIZAÇÃO SEGURA DO SISTEMA CENTRAL ===")
+print("===============================================")
+password = getpass.getpass("Introduz a password mestra para destrancar a chave: ").encode()
+
+salt = b'GSR_UM_2026'
+kdf = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=salt, iterations=100000)
+chave_cofre = base64.urlsafe_b64encode(kdf.derive(password))
+cofre_cipher = Fernet(chave_cofre)
+
+try:
+    with open("seguranca.key", "rb") as f:
+        chave_encriptada = f.read()
+    CHAVE_SECRETA = cofre_cipher.decrypt(chave_encriptada)
+    cipher = Fernet(CHAVE_SECRETA)
+    print("[OK] Chave carregada com sucesso! Túnel Seguro ativado.\n")
+except Exception:
+    print("[ERRO] Password incorreta ou ficheiro 'seguranca.key' em falta!")
+    print("Corre primeiro o script 'gerar_cofre.py' para criares o ficheiro de chaves.")
+    exit(1)
+
+OID_TUNEL = "1.3.6.1.3.2026.99.1.0"
+historico_ips = {}
+
+# =====================================================================
+# 2. CARREGAMENTO DA CONFIGURAÇÃO E INICIALIZAÇÃO DA MIB
+# =====================================================================
 with open('config.json', 'r') as f:
     cfg = json.load(f)
 
@@ -26,8 +60,8 @@ OID_BASE = "1.3.6.1.3.2026.1"
 mib[f"{OID_BASE}.1.2.0"] = cfg['geral']['simStepDuration']
 mib[f"{OID_BASE}.1.4.0"] = cfg['geral']['algoMinGreenTime']
 mib[f"{OID_BASE}.1.5.0"] = cfg['geral']['algoYellowTime']
-mib[f"{OID_BASE}.1.6.0"] = 4  # Algoritmo: 1=ROUND_ROBIN, 2=HEURISTICA, 3=RL, 4=BACKPRESSURE (padrão)
-mib[f"{OID_BASE}.1.7.0"] = 0  # Tempo de execução em segundos
+mib[f"{OID_BASE}.1.6.0"] = 4  
+mib[f"{OID_BASE}.1.7.0"] = 0  
 
 for r in cfg['roads']:
     rid = r['id']
@@ -46,56 +80,121 @@ for tl in cfg['trafficLights']:
 for link in cfg.get('links', []):
     mib[f"{OID_BASE}.5.1.4.{link['src']}.{link['dest']}"] = 0
 
-# 3. Responders SNMPv2c Reais
+# =====================================================================
+# 3. RESPONDERS SNMP (A BARREIRA DE SEGURANÇA)
+# =====================================================================
 class SCSetResponder(cmdrsp.SetCommandResponder):
     def processPdu(self, snmpEngine, messageProcessingModel, securityModel, securityName, securityLevel, contextEngineId, contextName, pduVersion, PDU, maxSizeResponseScopedPDU, stateReference):
+        global historico_ips
         respPDU = v2c.apiPDU.getResponse(PDU)
         varBinds = v2c.apiPDU.getVarBinds(PDU)
         novos_varBinds = []
+        
+        cliente_id = str(securityName) 
+        agora = time.time()
+
         for oid, val in varBinds:
             oid_str = str(oid)
-            if oid_str in mib and (".3.1.4." in oid_str or ".4.1.2." in oid_str or ".1.6.0" in oid_str):
-                mib[oid_str] = int(val)
-                if ".1.6.0" in oid_str:
-                    algo_map = {1: "ROUND_ROBIN", 2: "HEURISTICA", 3: "RL", 4: "BACKPRESSURE"}
-                    algo_nome = algo_map.get(int(val), "DESCONHECIDO")
-                    print(f"[SNMP SET] ALGORITMO alterado para: {algo_nome}")
-                else:
-                    tipo = "OVERRIDE" if ".4.1.2." in oid_str else "RTG"
-                    print(f"[SNMP SET] {tipo} atualizado: {oid_str} -> {int(val)}")
-                novos_varBinds.append((oid, val))
-            else:
+            
+            # Intercetar mensagens dirigidas ao Túnel Seguro
+            if oid_str == OID_TUNEL:
+                # 1. Desencriptação Primeiro (Para sabermos o que é antes de bloquear)
+                try:
+                    payload_limpo = cipher.decrypt(bytes(val)).decode('utf-8')
+                    comando_json = json.loads(payload_limpo)
+                    cmd_type = comando_json.get("comando", "DESCONHECIDO")
+                    
+                    # 2. Rate Limiting Inteligente (Baldes separados por tipo de comando)
+                    chave_limite = f"{cliente_id}_{cmd_type}"
+                    if chave_limite in historico_ips and (agora - historico_ips[chave_limite]) < 0.2:
+                        print(f"[SEGURANÇA] Bloqueio DoS! Ritmo excessivo de '{cmd_type}' do cliente {cliente_id}.")
+                        v2c.apiPDU.setErrorStatus(respPDU, 'genErr')
+                        novos_varBinds.append((oid, val))
+                        continue
+                        
+                    # Atualiza o tempo do último pedido para este tipo de comando
+                    historico_ips[chave_limite] = agora
+                    
+                    if cmd_type != "PULL_STATE":
+                        print(f"[TÚNEL SEGURO] Comando recebido: {comando_json}")
+                    
+                    # 3. Execução das ordens
+                    if cmd_type == "PULL_STATE":
+                        estado_atual = {
+                            "tempo": mib.get(f"{OID_BASE}.1.7.0", 0),
+                            "algo_id": mib.get(f"{OID_BASE}.1.6.0", 4),
+                            "filas": {r['id']: mib.get(f"{OID_BASE}.3.1.6.{r['id']}", 0) for r in cfg['roads']},
+                            "semaforos": {tl['roadIndex']: mib.get(f"{OID_BASE}.4.1.3.{tl['roadIndex']}", 1) for tl in cfg['trafficLights']},
+                            "rtgs": {r['id']: mib.get(f"{OID_BASE}.3.1.4.{r['id']}", 0) for r in cfg['roads'] if r['type'] == 3},
+                            "overrides": {tl['roadIndex']: mib.get(f"{OID_BASE}.4.1.2.{tl['roadIndex']}", 0) for tl in cfg['trafficLights']},
+                            "links": {f"{l['src']}.{l['dest']}": mib.get(f"{OID_BASE}.5.1.4.{l['src']}.{l['dest']}", 0) for l in cfg.get('links', [])}
+                        }
+                        resposta_encriptada = cipher.encrypt(json.dumps(estado_atual).encode('utf-8'))
+                        novos_varBinds.append((oid, v2c.OctetString(resposta_encriptada)))
+                        
+                    elif cmd_type == "SET_RTG":
+                        via = comando_json["via"]
+                        novo_rtg = comando_json["valor"]
+                        mib[f"{OID_BASE}.3.1.4.{via}"] = novo_rtg
+                        resposta_encriptada = cipher.encrypt(json.dumps({"status": "sucesso"}).encode('utf-8'))
+                        novos_varBinds.append((oid, v2c.OctetString(resposta_encriptada)))
+                        
+                    elif cmd_type == "SET_OVERRIDE":
+                        via = comando_json["via"]
+                        modo = comando_json["modo"]
+                        mib[f"{OID_BASE}.4.1.2.{via}"] = modo
+                        resposta_encriptada = cipher.encrypt(json.dumps({"status": "sucesso"}).encode('utf-8'))
+                        novos_varBinds.append((oid, v2c.OctetString(resposta_encriptada)))
+                        
+                    elif cmd_type == "SET_ALG":
+                        mib[f"{OID_BASE}.1.6.0"] = comando_json["alg_id"]
+                        resposta_encriptada = cipher.encrypt(json.dumps({"status": "sucesso"}).encode('utf-8'))
+                        novos_varBinds.append((oid, v2c.OctetString(resposta_encriptada)))
+
+                except InvalidToken:
+                    print("[SEGURANÇA] Intrusão detetada! Falha na desencriptação do payload.")
+                    v2c.apiPDU.setErrorStatus(respPDU, 'authorizationError')
+                    novos_varBinds.append((oid, val))
+                except Exception as e:
+                    print(f"[TÚNEL SEGURO] Erro ao processar comando: {e}")
+                    v2c.apiPDU.setErrorStatus(respPDU, 'genErr')
+                    novos_varBinds.append((oid, val))
+            
+            # Bloquear SETs diretos aos OIDs antigos para forçar o uso do túnel
+            elif oid_str in mib:
+                print(f"[SEGURANÇA] Tentativa de escrita não autorizada ao OID direto: {oid_str}")
                 v2c.apiPDU.setErrorStatus(respPDU, 'noAccess')
                 novos_varBinds.append((oid, val))
+            else:
+                novos_varBinds.append((oid, v2c.NoSuchInstance()))
+
         v2c.apiPDU.setVarBinds(respPDU, novos_varBinds)
         snmpEngine.msgAndPduDsp.returnResponsePdu(snmpEngine, messageProcessingModel, securityModel, securityName, securityLevel, contextEngineId, contextName, pduVersion, respPDU, maxSizeResponseScopedPDU, stateReference, {})
 
 class SCGetResponder(cmdrsp.GetCommandResponder):
     def processPdu(self, snmpEngine, messageProcessingModel, securityModel, securityName, securityLevel, contextEngineId, contextName, pduVersion, PDU, maxSizeResponseScopedPDU, stateReference):
+        # A morte do GET: Bloqueamos proativamente qualquer tentativa de leitura em plain-text.
         respPDU = v2c.apiPDU.getResponse(PDU)
         varBinds = v2c.apiPDU.getVarBinds(PDU)
         novos_varBinds = []
+        
         for oid, val in varBinds:
-            oid_str = str(oid)
-            if oid_str in mib:
-                if any(x in oid_str for x in [".3.1.4.", ".3.1.5.", ".3.1.6."]):
-                    novos_varBinds.append((oid, v2c.Gauge32(mib[oid_str])))
-                elif ".5.1.4." in oid_str:
-                    novos_varBinds.append((oid, v2c.Counter32(mib[oid_str])))
-                else:
-                    novos_varBinds.append((oid, v2c.Integer32(mib[oid_str])))
-            else:
-                novos_varBinds.append((oid, v2c.NoSuchInstance()))
+            print(f"[SEGURANÇA] Bloqueado GET em texto limpo ao OID: {oid}. Apenas PULL_STATE via Túnel é permitido.")
+            v2c.apiPDU.setErrorStatus(respPDU, 'noAccess')
+            novos_varBinds.append((oid, val))
+            
         v2c.apiPDU.setVarBinds(respPDU, novos_varBinds)
         snmpEngine.msgAndPduDsp.returnResponsePdu(snmpEngine, messageProcessingModel, securityModel, securityName, securityLevel, contextEngineId, contextName, pduVersion, respPDU, maxSizeResponseScopedPDU, stateReference, {})
 
-# Função que cria e envia a Trap SNMP
+# =====================================================================
+# 4. LÓGICA DE SIMULAÇÃO E TRAPS
+# =====================================================================
 async def disparar_trap(via, carros):
     try:
         await sendNotification(
             hlapiSnmpEngine(),
             CommunityData('public', mpModel=1),
-            UdpTransportTarget(('127.0.0.1', 16216)), # Envia para a porta da Consola
+            UdpTransportTarget(('127.0.0.1', 16216)),
             ContextData(),
             'trap',
             NotificationType(ObjectIdentity('1.3.6.1.4.1.2026.1.0.1')).addVarBinds(
@@ -107,9 +206,7 @@ async def disparar_trap(via, carros):
     except Exception:
         pass
 
-# --- NOVA FUNÇÃO: Limpar Métricas ---
 def limpar_metricas_mib(mib_dict, config):
-    """Repõe as filas, contadores de saída e tempo a zero/estado inicial."""
     mib_dict[f"{OID_BASE}.1.7.0"] = 0
     for r in config['roads']:
         mib_dict[f"{OID_BASE}.3.1.6.{r['id']}"] = r.get('initialCount', 0)
@@ -127,7 +224,6 @@ async def main():
     SCSetResponder(snmp_engine, snmp_context)
     SCGetResponder(snmp_engine, snmp_context)
 
-    # Mapeamento de algoritmos
     ALGO_MAP = {1: "ROUND_ROBIN", 2: "HEURISTICA", 3: "RL", 4: "BACKPRESSURE"}
     
     def criar_sd(algoritmo_nome):
@@ -136,17 +232,12 @@ async def main():
         elif algoritmo_nome == "RL": return SistemaDecisaoRL(mib, cfg)
         else: return SistemaDecisaoBackpressure(mib, cfg)
 
-    # Ler algoritmo da MIB
     algo_id = mib.get(f"{OID_BASE}.1.6.0", 4)
     ALGORITMO = ALGO_MAP.get(algo_id, "BACKPRESSURE")
     sd = criar_sd(ALGORITMO)
     
-    # ---------------------------------------------------------
-    # TREINO INICIAL 
-    # ---------------------------------------------------------
     if ALGORITMO == "RL":
         if sd.precisa_treino:
-            # Só entra aqui se o ficheiro do mapa não existir
             ssfr_treino = SistemaSimulacao(mib, cfg)
             print("\n[TREINO RL] Iniciando treino acelerado (1000 ciclos virtuais)...")
             sd.epsilon = 0.5 
@@ -157,15 +248,12 @@ async def main():
                 if i % 250 == 0: print(f"[TREINO RL] Progresso: {i}/1000 ciclos | Estados na memória: {len(sd.q_table)}")
 
             print("[TREINO RL] Treino concluído! A gravar conhecimento...")
-            sd.guardar_cerebro() # Grava o json
+            sd.guardar_cerebro()
             sd.epsilon = 0.05 
         else:
             print("\n[TREINO RL] O cérebro para este mapa já existe. A saltar o treino e arrancar a simulação!")
     
-    # Agora sim, limpamos as métricas todas poluídas pelo treino
     limpar_metricas_mib(mib, cfg)
-    
-    # E instanciamos o motor de simulação real, limpo, para arrancar
     ssfr = SistemaSimulacao(mib, cfg)
     
     nome_ficheiro_csv = f"historico_simulacao_{ALGORITMO}.csv"
@@ -186,16 +274,14 @@ async def main():
         print(f"A gravar dados em: {nome_ficheiro_csv}")
         
         while True:
-            # --- VERIFICAR SE ALGORITMO FOI ALTERADO ---
+            # --- VERIFICAR MUDANÇA DE ALGORITMO ---
             algo_id_atual = mib.get(f"{OID_BASE}.1.6.0", 4)
             ALGORITMO = ALGO_MAP.get(algo_id_atual, "BACKPRESSURE")
             
             if ALGORITMO != algo_anterior:
                 print(f"\n[ALTERAÇÃO] Mudando algoritmo de {algo_anterior} para {ALGORITMO}...")
-                
                 sd = criar_sd(ALGORITMO)
                 
-                # Treino RL isolado se o novo algoritmo for RL
                 if ALGORITMO == "RL":
                     ssfr_treino = SistemaSimulacao(mib, cfg)
                     print("[TREINO RL] Iniciando treino acelerado (1000 ciclos virtuais)...")
@@ -208,17 +294,12 @@ async def main():
                     sd.epsilon = 0.05 
                     print("[TREINO RL] Treino concluído!")
                 
-                # ZERAR TODAS AS MÉTRICAS APÓS TROCA/TREINO
                 limpar_metricas_mib(mib, cfg)
-                
-                # Reiniciar motor de simulação real a limpo
                 ssfr = SistemaSimulacao(mib, cfg)
-                
                 tempo_inicio = time.time()
                 tempo_ultimo_trap = {}
                 iteration = 0
                 
-                # Novo ficheiro de histórico
                 nome_ficheiro_csv = f"historico_simulacao_{ALGORITMO}.csv"
                 with open(nome_ficheiro_csv, mode='w', newline='') as file:
                     writer = csv.writer(file, delimiter=';') 
@@ -227,13 +308,13 @@ async def main():
                 algo_anterior = ALGORITMO
                 print(f"[ALTERAÇÃO] Simulação reiniciada a ZEROS com {ALGORITMO}!")
             
-            # Atualizar tempo de execução na MIB
             tempo_decorrido = int(time.time() - tempo_inicio)
             mib[f"{OID_BASE}.1.7.0"] = tempo_decorrido
             
             ssfr.run_step(sim_step)
             await sd.update(current_step=sim_step)
             
+            # --- PROCESSAR OVERRIDES MANUAIS ---
             for tl in cfg['trafficLights']:
                 rid = tl['roadIndex']
                 modo_manual = mib.get(f"{OID_BASE}.4.1.2.{rid}", 0)
@@ -245,6 +326,7 @@ async def main():
                     mib[f"{OID_BASE}.4.1.3.{rid}"] = 1 
                     mib[f"{OID_BASE}.4.1.4.{rid}"] = 99
             
+            # --- CÁLCULO DE ESTATÍSTICAS E TRAPS ---
             saidas = ['91', '92', '93', '94']
             total_escoados = sum(mib.get(f"{OID_BASE}.5.1.4.{link['src']}.{link['dest']}", 0) 
                                  for link in cfg.get('links', []) 

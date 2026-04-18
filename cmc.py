@@ -1,5 +1,53 @@
+import base64, json
+import getpass
+from cryptography.fernet import Fernet, InvalidToken
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+
+print("=== INICIALIZAÇÃO SEGURA ===")
+password = getpass.getpass("Introduz a password mestra para destrancar a chave: ").encode()
+
+salt = b'GSR_UM_2026'
+kdf = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=salt, iterations=100000)
+chave_cofre = base64.urlsafe_b64encode(kdf.derive(password))
+cofre_cipher = Fernet(chave_cofre)
+
+try:
+    with open("seguranca.key", "rb") as f:
+        chave_encriptada = f.read()
+    CHAVE_SECRETA = cofre_cipher.decrypt(chave_encriptada)
+    cipher = Fernet(CHAVE_SECRETA)
+    print("Chave carregada com sucesso!")
+except Exception:
+    print("ERRO: Password incorreta ou ficheiro 'seguranca.key' em falta!")
+    exit(1)
+
+OID_TUNEL = "1.3.6.1.3.2026.99.1.0"
 import asyncio
 from pysnmp.hlapi.asyncio import *
+
+async def enviar_comando_tunel(ip, porta, comunidade, payload_dict):
+    snmpEngine = SnmpEngine()
+    
+    # 1. Empacotar e Encriptar
+    payload_json = json.dumps(payload_dict).encode('utf-8')
+    payload_encriptado = cipher.encrypt(payload_json)
+    
+    # 2. Enviar via SET no Túnel
+    errorIndication, errorStatus, errorIndex, varBinds = await setCmd(
+        snmpEngine,
+        CommunityData(comunidade, mpModel=1),
+        UdpTransportTarget((ip, porta)),
+        ContextData(),
+        ObjectType(ObjectIdentity(OID_TUNEL), OctetString(payload_encriptado))
+    )
+
+    if errorIndication or errorStatus:
+        print("[Erro de Comunicação Segura] O pacote foi rejeitado ou falhou.")
+    else:
+        print("-> Comando seguro entregue com sucesso!")
+        
+    snmpEngine.transportDispatcher.closeDispatcher()
 
 async def enviar_comando_snmp(ip, porta, comunidade, oid, valor, tipo_snmp):
     snmpEngine = SnmpEngine()
@@ -36,6 +84,7 @@ def iniciar_cmc():
     ip_sc = "127.0.0.1"
     porta_sc = 16161
     comunidade = "public"
+    
 
     while True:
         try:
@@ -48,28 +97,38 @@ def iniciar_cmc():
                 
             partes = comando.split()
             
+            # --- RTG ---
             if partes[0] == 'rtg' and len(partes) == 3:
                 road_index = int(partes[1])
                 novo_rtg = int(partes[2])
-                oid = f'1.3.6.1.3.2026.1.3.1.4.{road_index}'
-                asyncio.run(enviar_comando_snmp(ip_sc, porta_sc, comunidade, oid, novo_rtg, Gauge32))
                 
+                payload = {"comando": "SET_RTG", "via": road_index, "valor": novo_rtg}
+                asyncio.run(enviar_comando_tunel(ip_sc, porta_sc, comunidade, payload))
+                # Teste DDOS
+                #for _ in range(5):
+                #    asyncio.run(enviar_comando_tunel(ip_sc, porta_sc, comunidade, payload))
+
+                
+            # --- OVERRIDE ---
             elif partes[0] == 'o' and len(partes) == 3:
                 road_index = int(partes[1])
                 modo = int(partes[2])
                 if modo not in [0, 1, 2]:
                     print("Erro: Modo de override inválido. Usa 0, 1 ou 2.")
                     continue
-                oid = f'1.3.6.1.3.2026.1.4.1.2.{road_index}'
-                asyncio.run(enviar_comando_snmp(ip_sc, porta_sc, comunidade, oid, modo, Integer32))
                 
+                payload = {"comando": "SET_OVERRIDE", "via": road_index, "modo": modo}
+                asyncio.run(enviar_comando_tunel(ip_sc, porta_sc, comunidade, payload))
+                
+            # --- ALGORITMO ---
             elif partes[0] == 'alg' and len(partes) == 2:
                 algo_id = int(partes[1])
                 if algo_id not in [1, 2, 3, 4]:
                     print("Erro: Algoritmo inválido. Usa 1, 2, 3 ou 4.")
                     continue
-                oid = '1.3.6.1.3.2026.1.1.6.0'
-                asyncio.run(enviar_comando_snmp(ip_sc, porta_sc, comunidade, oid, algo_id, Integer32))
+                
+                payload = {"comando": "SET_ALG", "alg_id": algo_id}
+                asyncio.run(enviar_comando_tunel(ip_sc, porta_sc, comunidade, payload))
                 
             else:
                 print("Comando inválido. Revê as instruções acima.")

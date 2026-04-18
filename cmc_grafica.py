@@ -1,3 +1,30 @@
+import base64
+import getpass
+from cryptography.fernet import Fernet, InvalidToken
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+
+print("=== INICIALIZAÇÃO SEGURA ===")
+password = getpass.getpass("Introduz a password mestra para destrancar a chave: ").encode()
+
+salt = b'GSR_UM_2026'
+kdf = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=salt, iterations=100000)
+chave_cofre = base64.urlsafe_b64encode(kdf.derive(password))
+cofre_cipher = Fernet(chave_cofre)
+
+try:
+    with open("seguranca.key", "rb") as f:
+        chave_encriptada = f.read()
+    CHAVE_SECRETA = cofre_cipher.decrypt(chave_encriptada)
+    cipher = Fernet(CHAVE_SECRETA)
+    print("Chave carregada com sucesso!")
+except Exception:
+    print("ERRO: Password incorreta ou ficheiro 'seguranca.key' em falta!")
+    exit(1)
+
+OID_TUNEL = "1.3.6.1.3.2026.99.1.0"
+
+
 import pygame
 import sys
 import asyncio
@@ -208,58 +235,53 @@ async def obter_dados_snmp():
     engine = SnmpEngine()
     while True:
         try:
-            oids = [ObjectType(ObjectIdentity(f'1.3.6.1.3.2026.1.4.1.3.{v}')) for v in list(estado_semaforos.keys())]
-            oids += [ObjectType(ObjectIdentity(f'1.3.6.1.3.2026.1.3.1.6.{v}')) for v in list(estado_filas.keys())]
-            oids += [ObjectType(ObjectIdentity(f'1.3.6.1.3.2026.1.3.1.4.{v}')) for v in list(estado_rtg.keys())]
-            oids += [ObjectType(ObjectIdentity(f'1.3.6.1.3.2026.1.4.1.2.{v}')) for v in list(estado_override.keys())]
-            oids += [ObjectType(ObjectIdentity(f'1.3.6.1.3.2026.1.5.1.4.{l}')) for l in list(estado_links.keys())]
-            oids += [ObjectType(ObjectIdentity('1.3.6.1.3.2026.1.1.7.0')), ObjectType(ObjectIdentity('1.3.6.1.3.2026.1.1.6.0'))]
+            payload = {"comando": "PULL_STATE"}
+            payload_encriptado = cipher.encrypt(json.dumps(payload).encode('utf-8'))
 
-            if not oids:
-                await asyncio.sleep(0.5)
-                continue
-
-            errorInd, errorStat, errorIdx, varBinds = await getCmd(
+            errorInd, errorStat, errorIdx, varBinds = await setCmd(
                 engine, CommunityData('public', mpModel=1),
                 UdpTransportTarget(('127.0.0.1', 16161), timeout=1, retries=0),
-                ContextData(), *oids
+                ContextData(),
+                ObjectType(ObjectIdentity(OID_TUNEL), OctetString(payload_encriptado))
             )
+
             if not errorInd and not errorStat:
                 for name, val in varBinds:
-                    oid_str = str(name)
-                    try: val_int = int(val)
-                    except ValueError: continue
-                    
-                    if '1.3.6.1.3.2026.1.1.7.0' in oid_str: builtins._tempo_execucao_snmp = val_int
-                    elif '1.3.6.1.3.2026.1.1.6.0' in oid_str: builtins._algo_id_snmp = val_int
-                    elif '1.3.6.1.3.2026.1.4.1.3.' in oid_str:
-                        v = int(oid_str.split('.')[-1])
-                        if v in estado_semaforos: estado_semaforos[v] = val_int
-                    elif '1.3.6.1.3.2026.1.3.1.6.' in oid_str:
-                        v = int(oid_str.split('.')[-1])
-                        if v in estado_filas: estado_filas[v] = val_int
-                    elif '1.3.6.1.3.2026.1.3.1.4.' in oid_str:
-                        v = int(oid_str.split('.')[-1])
-                        if v in estado_rtg: estado_rtg[v] = val_int
-                    elif '1.3.6.1.3.2026.1.4.1.2.' in oid_str:
-                        v = int(oid_str.split('.')[-1])
-                        if v in estado_override: estado_override[v] = val_int
-                    elif '1.3.6.1.3.2026.1.5.1.4.' in oid_str:
-                        parts = oid_str.split('.')
-                        l = f"{parts[-2]}.{parts[-1]}"
-                        if l in estado_links: estado_links[l] = val_int
-        except Exception: pass 
-        await asyncio.sleep(0.5)
+                    if str(name) == OID_TUNEL:
+                        # Desencriptar a resposta gorda enviada pelo SC
+                        resposta_json = cipher.decrypt(bytes(val)).decode('utf-8')
+                        dados = json.loads(resposta_json)
 
+                        # Atualizar as variáveis globais da interface gráfica
+                        builtins._tempo_execucao_snmp = dados.get("tempo", 0)
+                        builtins._algo_id_snmp = dados.get("algo_id", 4)
+                        
+                        # Atualizar dicionários convertendo as chaves de string para int onde necessário
+                        for k, v in dados.get("filas", {}).items(): estado_filas[int(k)] = v
+                        for k, v in dados.get("semaforos", {}).items(): estado_semaforos[int(k)] = v
+                        for k, v in dados.get("rtgs", {}).items(): estado_rtg[int(k)] = v
+                        for k, v in dados.get("overrides", {}).items(): estado_override[int(k)] = v
+                        for k, v in dados.get("links", {}).items(): estado_links[k] = v
+
+        except Exception as e:
+            pass 
+        
+        await asyncio.sleep(3)
+
+# =====================================================================
+# FUNÇÕES DE ENVIO (A USAR O TÚNEL SEGURO JSON)
+# =====================================================================
 async def enviar_algoritmo_snmp(algo_id):
-    await setCmd(SnmpEngine(), CommunityData('public', mpModel=1), UdpTransportTarget(('127.0.0.1', 16161), timeout=1, retries=0), ContextData(), ObjectType(ObjectIdentity('1.3.6.1.3.2026.1.1.6.0'), Integer32(algo_id)))
+    payload = {"comando": "SET_ALG", "alg_id": algo_id}
+    await enviar_comando_tunel('127.0.0.1', 16161, 'public', payload)
 
 async def enviar_novo_rtg_snmp(via, novo_rtg):
-    await setCmd(SnmpEngine(), CommunityData('public', mpModel=1), UdpTransportTarget(('127.0.0.1', 16161), timeout=1, retries=0), ContextData(), ObjectType(ObjectIdentity(f'1.3.6.1.3.2026.1.3.1.4.{via}'), Gauge32(novo_rtg)))
+    payload = {"comando": "SET_RTG", "via": via, "valor": novo_rtg}
+    await enviar_comando_tunel('127.0.0.1', 16161, 'public', payload)
 
 async def enviar_override_snmp(via, modo):
-    await setCmd(SnmpEngine(), CommunityData('public', mpModel=1), UdpTransportTarget(('127.0.0.1', 16161), timeout=1, retries=0), ContextData(), ObjectType(ObjectIdentity(f'1.3.6.1.3.2026.1.4.1.2.{via}'), Integer32(modo)))
-
+    payload = {"comando": "SET_OVERRIDE", "via": via, "modo": modo}
+    await enviar_comando_tunel('127.0.0.1', 16161, 'public', payload)
 def iniciar_thread_snmp():
     global snmp_loop
     snmp_loop = asyncio.new_event_loop()

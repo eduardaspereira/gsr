@@ -24,4 +24,4 @@
 
 
 criei 2 OIDS novos: id do algoritmo, tempo execução
-pip install networkx numpy scipy
+pip install networkx numpy scipy cryptography

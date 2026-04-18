@@ -8,3 +8,6 @@ q_table_mapa_2c41dc04.json
 q_table_mapa_7bfa009f.json
 **/__pycache__/
 *.pyc
+__pycache__/
+.gitignore
+seguranca.key
