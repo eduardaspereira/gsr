@@ -1,17 +1,33 @@
 import asyncio
 import random
+import json
+import os
+import hashlib
 
 class SistemaDecisaoRL:
     def __init__(self, shared_mib, config):
         self.mib = shared_mib
         self.cfg = config
         self.base = "1.3.6.1.3.2026.1"
+
+        # --- GERAR ASSINATURA ÚNICA DO MAPA ---
+        # Lê os cruzamentos e vias para perceber a topologia
+        map_str = "CR:" + ",".join(str(c['id']) for c in config.get('crossroads', []))
+        map_str += "|V:" + ",".join(str(r['id']) for r in config.get('roads', []))
+        # Gera um código curto (hash) baseado na topologia
+        self.map_hash = hashlib.md5(map_str.encode()).hexdigest()[:8]
+        self.q_table_file = f"q_table_mapa_{self.map_hash}.json"
         
         # --- PARÂMETROS DO Q-LEARNING ---
         self.q_table = {}
         self.alpha = 0.1      # Learning Rate (Taxa de aprendizagem)
         self.gamma = 0.9      # Discount Factor (Valorização de recompensas futuras)
         self.epsilon = 0.2    # Exploration Rate (Probabilidade de exploração)
+        
+        self.precisa_treino = True # Avisa o sc.py se precisa de treinar
+        
+        # Tenta carregar cérebro se já existir para este mapa específico
+        self.carregar_cerebro()
         
         self.last_state = {}
         self.last_action = {}
@@ -24,6 +40,32 @@ class SistemaDecisaoRL:
                 'cor_eixo': 2,   
                 'tempo_restante': 15
             }
+
+    def carregar_cerebro(self):
+        """Verifica se já existe um cérebro gravado para a topologia atual."""
+        if os.path.exists(self.q_table_file):
+            try:
+                with open(self.q_table_file, 'r') as f:
+                    # JSON guarda as chaves como strings. Temos de as passar a inteiros (estados)
+                    q_table_str_keys = json.load(f)
+                    self.q_table = {int(k): v for k, v in q_table_str_keys.items()}
+                    
+                print(f"[SD-RL] Cérebro carregado: {self.q_table_file} ({len(self.q_table)} estados)")
+                self.precisa_treino = False
+                self.epsilon = 0.05 # Corta a exploração porque já é um perito
+            except Exception as e:
+                print(f"[SD-RL] Erro ao ler cérebro: {e}. O modelo vai ser treinado de novo.")
+        else:
+            print(f"[SD-RL] Mapa novo detetado ({self.map_hash}). Vai treinar um cérebro de raiz.")
+
+    def guardar_cerebro(self):
+        """Guarda o conhecimento adquirido num ficheiro."""
+        try:
+            with open(self.q_table_file, 'w') as f:
+                json.dump(self.q_table, f)
+            print(f"[SD-RL] Cérebro gravado com sucesso em: {self.q_table_file}")
+        except Exception as e:
+            print(f"[SD-RL] Erro ao gravar cérebro: {e}")
 
     def get_state(self, cr_id, eixo_ativo):
         """Discretiza o estado: 0 (Vazio), 1 (Médio), 2 (Cheio)"""
@@ -46,7 +88,7 @@ class SistemaDecisaoRL:
         return total
 
     async def start(self):
-        print("[SD-RL] Cérebro Q-Learning carregado e pronto.")
+        print("[SD-RL] Módulo Q-Learning inicializado.")
 
     async def update(self, current_step=None, fast_forward_step=None):
         step = current_step if current_step is not None else fast_forward_step

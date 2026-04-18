@@ -3,3 +3,8 @@
 historico_simulacao_BACKPRESSURE.csv
 historico_simulacao_RL.csv
 historico_simulacao_HEURISTICA.csv
+historico_simulacao_ROUND_ROBIN.csv
+q_table_mapa_2c41dc04.json
+q_table_mapa_7bfa009f.json
+**/__pycache__/
+*.pyc

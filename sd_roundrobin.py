@@ -10,19 +10,18 @@ class SistemaDecisaoRoundRobin:
         
         for tl in config['trafficLights']:
             rid = tl['roadIndex']
-            # Inicialização fora de fase para evitar colisões
-            # tlColor: 1=Red, 2=Green, 3=Yellow
-            inicial_color = 2 if tl['tlAxis'] == 2 else 1 
+            
+            # CORREÇÃO: Lê 'axis', mas suporta 'tlAxis' se os ficheiros antigos o usarem
+            eixo = tl.get('axis', tl.get('tlAxis', 1))
+            inicial_color = 2 if eixo == 2 else 1 
             self.mib[f"{self.base}.4.1.3.{rid}"] = inicial_color
             
-            # Define o tempo inicial de duração (lido da MIB ou default 15s)
             default_green = self.mib.get(f"{self.base}.1.4.0", 15)
             self.mib[f"{self.base}.4.1.4.{rid}"] = default_green
 
     async def start(self):
         print("[SD-RR] Algoritmo Round-Robin (Ciclo Fixo) pronto.")
 
-    # Atualizado para receber o passo de tempo do sc.py
     async def update(self, current_step=None, fast_forward_step=None):
         step = current_step if current_step is not None else fast_forward_step
         if step is None: step = 0.5
@@ -39,7 +38,6 @@ class SistemaDecisaoRoundRobin:
                 oid_color = f"{self.base}.4.1.3.{rid}"
                 oid_time = f"{self.base}.4.1.4.{rid}"
                 
-                # Decrementa o tempo
                 current_time = self.mib.get(oid_time, 0) - step
                 curr_color = self.mib.get(oid_color, 1)
 
@@ -49,7 +47,7 @@ class SistemaDecisaoRoundRobin:
                         self.mib[oid_time] = yellow_time
                     elif curr_color == 3: # AMARELO -> VERMELHO
                         self.mib[oid_color] = 1
-                        self.mib[oid_time] = min_green # Tempo que o outro eixo ficará a verde
+                        self.mib[oid_time] = min_green 
                     else: # VERMELHO -> VERDE
                         self.mib[oid_color] = 2
                         self.mib[oid_time] = min_green

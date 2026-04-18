@@ -107,11 +107,21 @@ async def disparar_trap(via, carros):
     except Exception:
         pass
 
+# --- NOVA FUNÇÃO: Limpar Métricas ---
+def limpar_metricas_mib(mib_dict, config):
+    """Repõe as filas, contadores de saída e tempo a zero/estado inicial."""
+    mib_dict[f"{OID_BASE}.1.7.0"] = 0
+    for r in config['roads']:
+        mib_dict[f"{OID_BASE}.3.1.6.{r['id']}"] = r.get('initialCount', 0)
+    for link in config.get('links', []):
+        mib_dict[f"{OID_BASE}.5.1.4.{link['src']}.{link['dest']}"] = 0
+
 async def main():
     snmp_engine = engine.SnmpEngine()
-    config.addTransport(snmp_engine, udp.domainName, udp.UdpTransport().openServerMode(('127.0.0.1', 16161)))
-    config.addV1System(snmp_engine, 'my-area', 'public')
-    config.addVacmUser(snmp_engine, 2, 'my-area', 'noAuthNoPriv', (1, 3, 6), (1, 3, 6))
+    config_snmp = config
+    config_snmp.addTransport(snmp_engine, udp.domainName, udp.UdpTransport().openServerMode(('127.0.0.1', 16161)))
+    config_snmp.addV1System(snmp_engine, 'my-area', 'public')
+    config_snmp.addVacmUser(snmp_engine, 2, 'my-area', 'noAuthNoPriv', (1, 3, 6), (1, 3, 6))
     snmp_context = context.SnmpContext(snmp_engine)
     
     SCSetResponder(snmp_engine, snmp_context)
@@ -119,40 +129,45 @@ async def main():
 
     # Mapeamento de algoritmos
     ALGO_MAP = {1: "ROUND_ROBIN", 2: "HEURISTICA", 3: "RL", 4: "BACKPRESSURE"}
-    ALGO_INVERSE = {v: k for k, v in ALGO_MAP.items()}
     
-    # Função para criar o sistema de decisão
     def criar_sd(algoritmo_nome):
-        if algoritmo_nome == "ROUND_ROBIN":
-            return SistemaDecisaoRoundRobin(mib, cfg)
-        elif algoritmo_nome == "HEURISTICA":
-            return SistemaDecisaoOcupacao(mib, cfg)
-        elif algoritmo_nome == "RL":
-            return SistemaDecisaoRL(mib, cfg)
-        else:
-            return SistemaDecisaoBackpressure(mib, cfg)
+        if algoritmo_nome == "ROUND_ROBIN": return SistemaDecisaoRoundRobin(mib, cfg)
+        elif algoritmo_nome == "HEURISTICA": return SistemaDecisaoOcupacao(mib, cfg)
+        elif algoritmo_nome == "RL": return SistemaDecisaoRL(mib, cfg)
+        else: return SistemaDecisaoBackpressure(mib, cfg)
 
-    ssfr = SistemaSimulacao(mib, cfg)
-    
     # Ler algoritmo da MIB
     algo_id = mib.get(f"{OID_BASE}.1.6.0", 4)
     ALGORITMO = ALGO_MAP.get(algo_id, "BACKPRESSURE")
-    
     sd = criar_sd(ALGORITMO)
     
-    # Treino RL se necessário
+    # ---------------------------------------------------------
+    # TREINO INICIAL 
+    # ---------------------------------------------------------
     if ALGORITMO == "RL":
-        print("\n[TREINO RL] Iniciando treino acelerado (2000 ciclos virtuais)...")
-        sd.epsilon = 0.5 
-        
-        for i in range(2000):
-            ssfr.run_step(5) 
-            await sd.update(fast_forward_step=5)
-            if i % 500 == 0: print(f"[TREINO RL] Progresso: {i}/2000 ciclos | Estados na memória: {len(sd.q_table)}")
+        if sd.precisa_treino:
+            # Só entra aqui se o ficheiro do mapa não existir
+            ssfr_treino = SistemaSimulacao(mib, cfg)
+            print("\n[TREINO RL] Iniciando treino acelerado (1000 ciclos virtuais)...")
+            sd.epsilon = 0.5 
+            
+            for i in range(1000):
+                ssfr_treino.run_step(5) 
+                await sd.update(fast_forward_step=5)
+                if i % 250 == 0: print(f"[TREINO RL] Progresso: {i}/1000 ciclos | Estados na memória: {len(sd.q_table)}")
 
-        print("[TREINO RL] Treino concluído! Agente pronto para agir.")
-        sd.epsilon = 0.05 
-
+            print("[TREINO RL] Treino concluído! A gravar conhecimento...")
+            sd.guardar_cerebro() # Grava o json
+            sd.epsilon = 0.05 
+        else:
+            print("\n[TREINO RL] O cérebro para este mapa já existe. A saltar o treino e arrancar a simulação!")
+    
+    # Agora sim, limpamos as métricas todas poluídas pelo treino
+    limpar_metricas_mib(mib, cfg)
+    
+    # E instanciamos o motor de simulação real, limpo, para arrancar
+    ssfr = SistemaSimulacao(mib, cfg)
+    
     nome_ficheiro_csv = f"historico_simulacao_{ALGORITMO}.csv"
     with open(nome_ficheiro_csv, mode='w', newline='') as file:
         writer = csv.writer(file, delimiter=';') 
@@ -164,7 +179,7 @@ async def main():
         sim_step = cfg['geral']['simStepDuration']
         iteration = 0
         tempo_inicio = time.time()
-        tempo_ultimo_trap = {} # Para não spammar a rede
+        tempo_ultimo_trap = {} 
         algo_anterior = ALGORITMO
 
         print(f"\n=== SC EM EXECUÇÃO (Porta 16161) | Algoritmo: {ALGORITMO} ===")
@@ -178,9 +193,27 @@ async def main():
             if ALGORITMO != algo_anterior:
                 print(f"\n[ALTERAÇÃO] Mudando algoritmo de {algo_anterior} para {ALGORITMO}...")
                 
-                # Reiniciar tudo
-                ssfr = SistemaSimulacao(mib, cfg)
                 sd = criar_sd(ALGORITMO)
+                
+                # Treino RL isolado se o novo algoritmo for RL
+                if ALGORITMO == "RL":
+                    ssfr_treino = SistemaSimulacao(mib, cfg)
+                    print("[TREINO RL] Iniciando treino acelerado (1000 ciclos virtuais)...")
+                    sd.epsilon = 0.5 
+                    for i in range(1000):
+                        ssfr_treino.run_step(5) 
+                        await sd.update(fast_forward_step=5)
+                        if i % 250 == 0: print(f"[TREINO RL] Progresso: {i}/1000 ciclos | Estados na memória: {len(sd.q_table)}")
+                    sd.guardar_cerebro()
+                    sd.epsilon = 0.05 
+                    print("[TREINO RL] Treino concluído!")
+                
+                # ZERAR TODAS AS MÉTRICAS APÓS TROCA/TREINO
+                limpar_metricas_mib(mib, cfg)
+                
+                # Reiniciar motor de simulação real a limpo
+                ssfr = SistemaSimulacao(mib, cfg)
+                
                 tempo_inicio = time.time()
                 tempo_ultimo_trap = {}
                 iteration = 0
@@ -191,19 +224,8 @@ async def main():
                     writer = csv.writer(file, delimiter=';') 
                     writer.writerow(["Tempo (s)", "Algoritmo", "Total Escoados", "Fila Maxima"])
                 
-                # Treino RL se necessário
-                if ALGORITMO == "RL":
-                    print("[TREINO RL] Iniciando treino acelerado (2000 ciclos virtuais)...")
-                    sd.epsilon = 0.5 
-                    for i in range(2000):
-                        ssfr.run_step(5) 
-                        await sd.update(fast_forward_step=5)
-                        if i % 500 == 0: print(f"[TREINO RL] Progresso: {i}/2000 ciclos | Estados na memória: {len(sd.q_table)}")
-                    sd.epsilon = 0.05 
-                    print("[TREINO RL] Treino concluído!")
-                
                 algo_anterior = ALGORITMO
-                print(f"[ALTERAÇÃO] Simulação reiniciada com {ALGORITMO}!")
+                print(f"[ALTERAÇÃO] Simulação reiniciada a ZEROS com {ALGORITMO}!")
             
             # Atualizar tempo de execução na MIB
             tempo_decorrido = int(time.time() - tempo_inicio)
@@ -234,14 +256,11 @@ async def main():
                 if r['id'] not in vias_saida:
                     fila_atual = mib.get(f"{OID_BASE}.3.1.6.{r['id']}", 0)
                     
-                    # --- LÓGICA DE ALARME ---
                     if fila_atual >= 20:
                         agora = time.time()
-                        # Dispara a Trap no máximo a cada 10s por via
                         if agora - tempo_ultimo_trap.get(r['id'], 0) > 10.0:
                             asyncio.create_task(disparar_trap(r['id'], fila_atual))
                             tempo_ultimo_trap[r['id']] = agora
-                    # ------------------------------
 
                     if fila_atual > max_fila:
                         max_fila = fila_atual

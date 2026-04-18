@@ -58,7 +58,7 @@ class SistemaDecisaoOcupacao:
                         self.mib[oid_time] = tempo_calculado
                         
                         if carros_na_fila > 0:
-                            print(f"⚖️ [HEUR] Via {rid}: {carros_na_fila} carros -> Verde por {tempo_calculado}s")
+                            print(f"[HEUR] Via {rid}: {carros_na_fila} carros -> Verde por {tempo_calculado}s")
                 else:
                     # Apenas atualiza o tempo restante na MIB
                     self.mib[oid_time] = max(0, current_time_rem)
