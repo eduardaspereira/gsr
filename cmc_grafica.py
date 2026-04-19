@@ -208,7 +208,7 @@ estado_override.update({tl['roadIndex']: 0 for tl in cfg.get('trafficLights', []
 estado_links.update({f"{l['src']}.{l['dest']}": 0 for l in cfg.get('links', [])})
 
 snmp_loop = None 
-alerta_trap = {"ativo": False, "via": 0, "carros": 0, "expira": 1}
+alerta_trap = {"ativo": False, "via": 0, "carros": 0, "expira": 0}
 
 import builtins
 builtins._tempo_execucao_snmp = 0
