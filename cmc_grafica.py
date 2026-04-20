@@ -213,7 +213,7 @@ alerta_trap = {"ativo": False, "via": 0, "carros": 0, "expira": 0}
 import builtins
 builtins._tempo_execucao_snmp = 0
 builtins._algo_id_snmp = 4  
-confirmacao_algoritmo = {"ativo": False, "tempo": 1}
+confirmacao_algoritmo = {"ativo": False, "tempo": 0}
 
 def processar_trap(snmpEngine, stateReference, contextEngineId, contextName, varBinds, cbCtx):
     global alerta_trap
