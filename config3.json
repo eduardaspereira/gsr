@@ -16,14 +16,14 @@
     { "id": 9, "mode": 1 }
   ],
   "roads": [
-    { "id": 101, "name": "IN Norte (->C1)", "type": 3, "rtg": 8, "maxCapacity": 50, "initialCount": 0 },
-    { "id": 102, "name": "IN Norte (->C2)", "type": 3, "rtg": 8, "maxCapacity": 50, "initialCount": 0 },
-    { "id": 103, "name": "IN Norte (->C3)", "type": 3, "rtg": 8, "maxCapacity": 50, "initialCount": 0 },
-    { "id": 104, "name": "IN Oeste (->C4)", "type": 3, "rtg": 8, "maxCapacity": 50, "initialCount": 0 },
-    { "id": 106, "name": "IN Este (->C6)",  "type": 3, "rtg": 8, "maxCapacity": 50, "initialCount": 0 },
-    { "id": 107, "name": "IN Sul (->C7)",   "type": 3, "rtg": 8, "maxCapacity": 50, "initialCount": 0 },
-    { "id": 108, "name": "IN Sul (->C8)",   "type": 3, "rtg": 8, "maxCapacity": 50, "initialCount": 0 },
-    { "id": 109, "name": "IN Sul (->C9)",   "type": 3, "rtg": 8, "maxCapacity": 50, "initialCount": 0 },
+    { "id": 101, "name": "IN Norte (->C1)", "type": 3, "rtg": 40, "maxCapacity": 50, "initialCount": 0 },
+    { "id": 102, "name": "IN Norte (->C2)", "type": 3, "rtg": 40, "maxCapacity": 50, "initialCount": 0 },
+    { "id": 103, "name": "IN Norte (->C3)", "type": 3, "rtg": 40, "maxCapacity": 50, "initialCount": 0 },
+    { "id": 104, "name": "IN Oeste (->C4)", "type": 3, "rtg": 40, "maxCapacity": 5, "initialCount": 0 },
+    { "id": 106, "name": "IN Este (->C6)",  "type": 3, "rtg": 40, "maxCapacity": 5, "initialCount": 0 },
+    { "id": 107, "name": "IN Sul (->C7)",   "type": 3, "rtg": 40, "maxCapacity": 5, "initialCount": 0 },
+    { "id": 108, "name": "IN Sul (->C8)",   "type": 3, "rtg": 40, "maxCapacity": 5, "initialCount": 0 },
+    { "id": 109, "name": "IN Sul (->C9)",   "type": 3, "rtg": 40, "maxCapacity": 5, "initialCount": 0 },
 
     { "id": 1, "name": "C1->C2", "type": 1, "rtg": 0, "maxCapacity": 30, "initialCount": 0 },
     { "id": 2, "name": "C2->C1", "type": 1, "rtg": 0, "maxCapacity": 30, "initialCount": 0 },

@@ -50,7 +50,7 @@ historico_ips = {}
 # =====================================================================
 # 2. CARREGAMENTO DA CONFIGURAÇÃO E INICIALIZAÇÃO DA MIB
 # =====================================================================
-with open('config.json', 'r') as f:
+with open('config3.json', 'r') as f:
     cfg = json.load(f)
 
 mib = {}
@@ -60,7 +60,7 @@ OID_BASE = "1.3.6.1.3.2026.1"
 mib[f"{OID_BASE}.1.2.0"] = cfg['geral']['simStepDuration']
 mib[f"{OID_BASE}.1.4.0"] = cfg['geral']['algoMinGreenTime']
 mib[f"{OID_BASE}.1.5.0"] = cfg['geral']['algoYellowTime']
-mib[f"{OID_BASE}.1.6.0"] = 4  
+mib[f"{OID_BASE}.1.6.0"] = 1  
 mib[f"{OID_BASE}.1.7.0"] = 0  
 
 for r in cfg['roads']:
@@ -246,7 +246,7 @@ async def main():
             print("\n[TREINO RL] Iniciando treino acelerado (1000 ciclos virtuais)...")
             sd.epsilon = 0.5 
             
-            for i in range(1000):
+            for i in range(10000):
                 ssfr_treino.run_step(5) 
                 await sd.update(fast_forward_step=5)
                 if i % 250 == 0: print(f"[TREINO RL] Progresso: {i}/1000 ciclos | Estados na memória: {len(sd.q_table)}")
@@ -260,10 +260,18 @@ async def main():
     limpar_metricas_mib(mib, cfg)
     ssfr = SistemaSimulacao(mib, cfg)
     
+    # -------------------------------------------------------------------------
+    # CRIAÇÃO DO CSV INICIAL
+    # -------------------------------------------------------------------------
     nome_ficheiro_csv = f"historico_simulacao_{ALGORITMO}.csv"
-    with open(nome_ficheiro_csv, mode='w', newline='') as file:
-        writer = csv.writer(file, delimiter=';') 
-        writer.writerow(["Tempo (s)", "Algoritmo", "Total Escoados", "Fila Maxima"])
+    try:
+        with open(nome_ficheiro_csv, mode='w', newline='') as file:
+            writer = csv.writer(file, delimiter=';') 
+            writer.writerow(["Tempo (s)", "Algoritmo", "Total Escoados", "Fila Maxima", "Ocupacao Media"])
+    except PermissionError:
+        print(f"\n[ERRO CRÍTICO] O ficheiro {nome_ficheiro_csv} está aberto no Excel!")
+        print("Fecha o Excel e corre o script novamente.")
+        return
 
     async def simulation_loop():
         nonlocal ALGORITMO, sd, ssfr, nome_ficheiro_csv
@@ -290,7 +298,7 @@ async def main():
                     ssfr_treino = SistemaSimulacao(mib, cfg)
                     print("[TREINO RL] Iniciando treino acelerado (1000 ciclos virtuais)...")
                     sd.epsilon = 0.5 
-                    for i in range(1000):
+                    for i in range(10000):
                         ssfr_treino.run_step(5) 
                         await sd.update(fast_forward_step=5)
                         if i % 250 == 0: print(f"[TREINO RL] Progresso: {i}/1000 ciclos | Estados na memória: {len(sd.q_table)}")
@@ -305,9 +313,12 @@ async def main():
                 iteration = 0
                 
                 nome_ficheiro_csv = f"historico_simulacao_{ALGORITMO}.csv"
-                with open(nome_ficheiro_csv, mode='w', newline='') as file:
-                    writer = csv.writer(file, delimiter=';') 
-                    writer.writerow(["Tempo (s)", "Algoritmo", "Total Escoados", "Fila Maxima"])
+                try:
+                    with open(nome_ficheiro_csv, mode='w', newline='') as file:
+                        writer = csv.writer(file, delimiter=';') 
+                        writer.writerow(["Tempo (s)", "Algoritmo", "Total Escoados", "Fila Maxima", "Ocupacao Media"])
+                except PermissionError:
+                    print(f"\n[ERRO CSV] Fecha o Excel! Não consigo criar o ficheiro: {nome_ficheiro_csv}")
                 
                 algo_anterior = ALGORITMO
                 print(f"[ALTERAÇÃO] Simulação reiniciada a ZEROS com {ALGORITMO}!")
@@ -351,13 +362,25 @@ async def main():
                     if fila_atual > max_fila:
                         max_fila = fila_atual
 
-            with open(nome_ficheiro_csv, mode='a', newline='') as file:
-                writer = csv.writer(file, delimiter=';')
-                writer.writerow([tempo_decorrido, ALGORITMO, total_escoados, max_fila])
+            # -------------------------------------------------------------------------
+            # CÁLCULO SEGURO E ESCRITA DO CSV (COM PROTEÇÃO)
+            # -------------------------------------------------------------------------
+            try:
+                # Usa a mesma lógica do max_fila para evitar erros caso falte o "type" no json
+                vias_internas = [r['id'] for r in cfg['roads'] if r['id'] not in vias_saida]
+                ocupacao_media = 0
+                if len(vias_internas) > 0:
+                    ocupacao_media = sum(mib.get(f"{OID_BASE}.3.1.6.{v}", 0) for v in vias_internas) / len(vias_internas)
+
+                with open(nome_ficheiro_csv, mode='a', newline='') as file:
+                    writer = csv.writer(file, delimiter=';')
+                    writer.writerow([tempo_decorrido, ALGORITMO, total_escoados, max_fila, round(ocupacao_media, 2)])
+            except Exception as e:
+                print(f"[ERRO CSV] Não consegui gravar os dados! (Tens o Excel aberto?): {e}")
 
             if iteration % 4 == 0:
                 vias = " | ".join([f"V{r['id']}:{mib[f'{OID_BASE}.3.1.6.{r['id']}']}v" for r in cfg['roads'][:4]])
-                print(f"[MONITOR] {vias} | Escoados: {total_escoados} | Algoritmo: {ALGORITMO}")
+                print(f"[MONITOR] {vias} | Escoados: {total_escoados} | Alg. {ALGORITMO}")
             
             iteration += 1
             await asyncio.sleep(sim_step)
