@@ -60,7 +60,7 @@ OID_BASE = "1.3.6.1.3.2026.1"
 mib[f"{OID_BASE}.1.2.0"] = cfg['geral']['simStepDuration']
 mib[f"{OID_BASE}.1.4.0"] = cfg['geral']['algoMinGreenTime']
 mib[f"{OID_BASE}.1.5.0"] = cfg['geral']['algoYellowTime']
-mib[f"{OID_BASE}.1.6.0"] = 1  
+mib[f"{OID_BASE}.1.6.0"] = 2 
 mib[f"{OID_BASE}.1.7.0"] = 0  
 
 for r in cfg['roads']:
