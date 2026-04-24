@@ -20,4 +20,4 @@ chave_encriptada = cofre_cipher.encrypt(chave_snmp)
 with open("seguranca.key", "wb") as f:
     f.write(chave_encriptada)
 
-print("Ficheiro 'seguranca.key' gerado com sucesso! A tua chave está trancada.")
+print("Ficheiro 'seguranca.key' gerado com sucesso! A chave está trancada.")

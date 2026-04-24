@@ -348,7 +348,7 @@ async def main():
                                  if str(link['dest']) in saidas)
             
             max_fila = 0
-            vias_saida = [91, 92, 93, 94]
+            vias_saida = [road['id'] for road in cfg['roads'] if road.get('type') == 2]
             for r in cfg['roads']:
                 if r['id'] not in vias_saida:
                     fila_atual = mib.get(f"{OID_BASE}.3.1.6.{r['id']}", 0)
