@@ -21,28 +21,24 @@ from sd_heuristicaocupacao import SistemaDecisaoOcupacao
 from sd_roundrobin import SistemaDecisaoRoundRobin
 
 # =====================================================================
-# 1. SEGURANÇA E ARRANQUE (O COFRE)
+# 1. SEGURANÇA E ARRANQUE SILENCIOSO
 # =====================================================================
-print("===============================================")
-print("=== INICIALIZAÇÃO SEGURA DO SISTEMA CENTRAL ===")
-print("===============================================")
-password = getpass.getpass("Introduz a password mestra para destrancar a chave: ").encode()
+try:
+    with open(".password_guardada.txt", "rb") as f:
+        password_lida = f.read().strip()
+except FileNotFoundError:
+    print("[ERRO] Corre o 'gerar_cofre.py' de novo para gravar a password.")
+    import sys
+    sys.exit(1)
 
 salt = b'GSR_UM_2026'
 kdf = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=salt, iterations=100000)
-chave_cofre = base64.urlsafe_b64encode(kdf.derive(password))
+chave_cofre = base64.urlsafe_b64encode(kdf.derive(password_lida))
 cofre_cipher = Fernet(chave_cofre)
-
-try:
-    with open("seguranca.key", "rb") as f:
-        chave_encriptada = f.read()
-    CHAVE_SECRETA = cofre_cipher.decrypt(chave_encriptada)
-    cipher = Fernet(CHAVE_SECRETA)
-    print("[OK] Chave carregada com sucesso! Túnel Seguro ativado.\n")
-except Exception:
-    print("[ERRO] Password incorreta ou ficheiro 'seguranca.key' em falta!")
-    print("Corre primeiro o script 'gerar_cofre.py' para criares o ficheiro de chaves.")
-    exit(1)
+with open("seguranca.key", "rb") as f:
+    chave_encriptada = f.read()
+CHAVE_SECRETA = cofre_cipher.decrypt(chave_encriptada)
+cipher = Fernet(CHAVE_SECRETA)
 
 OID_TUNEL = "1.3.6.1.3.2026.99.1.0"
 historico_ips = {}

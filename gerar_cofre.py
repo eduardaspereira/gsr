@@ -6,6 +6,10 @@ from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
 password = input("Define a password mestra para trancar as chaves: ").encode()
 
+# Guarda a password temporariamente para que os outros scripts consigam ler automaticamente
+with open(".password_guardada.txt", "wb") as f:
+    f.write(password)
+
 # Derivar uma chave forte a partir da password
 salt = b'GSR_UM_2026' # Salt fixo para simplificar o projeto
 kdf = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=salt, iterations=100000)
