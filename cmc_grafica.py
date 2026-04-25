@@ -8,6 +8,8 @@ import networkx as nx
 import math, re
 import base64
 import getpass
+import tkinter as tk
+from tkinter import simpledialog, messagebox
 from cryptography.fernet import Fernet, InvalidToken
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
@@ -22,7 +24,24 @@ from pysnmp.entity.rfc3413 import ntfrcv
 print("===============================================")
 print("=== INICIALIZAÇÃO SEGURA DA CONSOLA GRÁFICA ===")
 print("===============================================")
-password = getpass.getpass("Introduz a password mestra para destrancar a chave: ").encode()
+def solicitar_password_gui():
+    root = tk.Tk()
+    root.withdraw()
+    
+    password_str = simpledialog.askstring(
+        "Autenticação de Segurança",
+        "Introduz a password mestra para destrancar a chave:",
+        show='*'
+    )
+    
+    if not password_str:
+        print("[AVISO] Autenticação cancelada.")
+        import sys
+        sys.exit(0)
+        
+    return password_str.encode()
+
+password = solicitar_password_gui()
 
 salt = b'GSR_UM_2026'
 kdf = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=salt, iterations=100000)
@@ -36,7 +55,11 @@ try:
     cipher = Fernet(CHAVE_SECRETA)
     print("[OK] Chave carregada com sucesso! Ligação Segura Ativa.\n")
 except Exception:
+    root = tk.Tk()
+    root.withdraw()
+    messagebox.showerror("Acesso Negado", "Password incorreta ou ficheiro 'seguranca.key' em falta!")
     print("[ERRO] Password incorreta ou ficheiro 'seguranca.key' em falta!")
+    import sys
     sys.exit(1)
 
 OID_TUNEL = "1.3.6.1.3.2026.99.1.0"
