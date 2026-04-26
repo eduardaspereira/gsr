@@ -7,9 +7,6 @@ import time
 import networkx as nx
 import math, re
 import base64
-import getpass
-import tkinter as tk
-from tkinter import simpledialog, messagebox
 from cryptography.fernet import Fernet, InvalidToken
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
@@ -19,50 +16,82 @@ from pysnmp.carrier.asyncio.dgram import udp
 from pysnmp.entity.rfc3413 import ntfrcv
 
 # =====================================================================
-# 1. SEGURANÇA E ARRANQUE (O COFRE)
+# 1. FUNÇÕES DE SEGURANÇA E ARRANQUE NATIVO (PYGAME)
 # =====================================================================
 print("===============================================")
 print("=== INICIALIZAÇÃO SEGURA DA CONSOLA GRÁFICA ===")
 print("===============================================")
-def solicitar_password_gui():
-    root = tk.Tk()
-    root.withdraw()
-    
-    password_str = simpledialog.askstring(
-        "Autenticação de Segurança",
-        "Introduz a password mestra para destrancar a chave:",
-        show='*'
-    )
-    
-    if not password_str:
-        print("[AVISO] Autenticação cancelada.")
-        import sys
-        sys.exit(0)
-        
-    return password_str.encode()
 
-password = solicitar_password_gui()
-
-salt = b'GSR_UM_2026'
-kdf = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=salt, iterations=100000)
-chave_cofre = base64.urlsafe_b64encode(kdf.derive(password))
-cofre_cipher = Fernet(chave_cofre)
-
-try:
-    with open("seguranca.key", "rb") as f:
-        chave_encriptada = f.read()
-    CHAVE_SECRETA = cofre_cipher.decrypt(chave_encriptada)
-    cipher = Fernet(CHAVE_SECRETA)
-    print("[OK] Chave carregada com sucesso! Ligação Segura Ativa.\n")
-except Exception:
-    root = tk.Tk()
-    root.withdraw()
-    messagebox.showerror("Acesso Negado", "Password incorreta ou ficheiro 'seguranca.key' em falta!")
-    print("[ERRO] Password incorreta ou ficheiro 'seguranca.key' em falta!")
-    import sys
-    sys.exit(1)
-
+cipher = None 
 OID_TUNEL = "1.3.6.1.3.2026.99.1.0"
+RESOLUCAO_BASE = (900, 700)
+
+def autenticacao_nativa_pygame(ecra, relogio):
+    """Ecrã de Login desenhado 100% dentro do Pygame"""
+    fonte_titulo = pygame.font.SysFont("Courier New", 26, bold=True)
+    fonte_texto = pygame.font.SysFont("Arial", 18)
+    fonte_input = pygame.font.SysFont("Courier New", 24, bold=True)
+    
+    input_box = pygame.Rect(RESOLUCAO_BASE[0]//2 - 150, RESOLUCAO_BASE[1]//2 - 20, 300, 45)
+    cor_ativa = (50, 150, 255)
+    cor_inativa = (100, 100, 100)
+    
+    password_digitada = ""
+    mensagem_erro = ""
+    tempo_erro = 0
+    
+    while True:
+        agora = time.time()
+        for ev in pygame.event.get():
+            if ev.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            if ev.type == pygame.KEYDOWN:
+                if mensagem_erro != "":
+                    mensagem_erro = "" # Limpa erro ao digitar de novo
+                
+                if ev.key == pygame.K_RETURN:
+                    if len(password_digitada) > 0:
+                        return password_digitada.encode()
+                elif ev.key == pygame.K_BACKSPACE:
+                    password_digitada = password_digitada[:-1]
+                elif ev.key == pygame.K_ESCAPE:
+                    pygame.quit()
+                    sys.exit()
+                elif ev.unicode.isprintable():
+                    password_digitada += ev.unicode
+
+        ecra.fill((30, 35, 40))
+        
+        # Textos
+        txt_t = fonte_titulo.render("SISTEMA CENTRAL DE TRÁFEGO", True, (255, 255, 255))
+        txt_s = fonte_texto.render("Introduz a password mestra para destrancar a chave:", True, (200, 200, 200))
+        ecra.blit(txt_t, txt_t.get_rect(center=(RESOLUCAO_BASE[0]//2, RESOLUCAO_BASE[1]//2 - 80)))
+        ecra.blit(txt_s, txt_s.get_rect(center=(RESOLUCAO_BASE[0]//2, RESOLUCAO_BASE[1]//2 - 45)))
+        
+        # Caixa de Input
+        pygame.draw.rect(ecra, (20, 25, 30), input_box)
+        pygame.draw.rect(ecra, cor_ativa, input_box, 2)
+        
+        # Renderizar texto mascarado (*)
+        texto_escondido = "*" * len(password_digitada)
+        txt_surface = fonte_input.render(texto_escondido + "_", True, (255, 255, 255))
+        ecra.blit(txt_surface, (input_box.x + 10, input_box.y + 10))
+        
+        # Mostrar Erro se existir
+        if mensagem_erro:
+            txt_e = fonte_texto.render(mensagem_erro, True, (255, 80, 80))
+            ecra.blit(txt_e, txt_e.get_rect(center=(RESOLUCAO_BASE[0]//2, RESOLUCAO_BASE[1]//2 + 50)))
+            if agora - tempo_erro > 3.0: # Erro desaparece após 3 segs
+                mensagem_erro = ""
+                
+        # Dicas
+        txt_d = fonte_texto.render("Pressiona [ENTER] para confirmar ou [ESC] para sair", True, (100, 100, 100))
+        ecra.blit(txt_d, txt_d.get_rect(center=(RESOLUCAO_BASE[0]//2, RESOLUCAO_BASE[1] - 30)))
+
+        pygame.display.flip()
+        relogio.tick(30)
+
 
 # =====================================================================
 # 2. FUNÇÕES BASE DA TOPOLOGIA DINÂMICA
@@ -222,7 +251,7 @@ try:
     with open('config2.json', 'r') as f:
         cfg = json.load(f)
 except Exception:
-    cfg = {'roads': [], 'trafficLights': []} # Fallback se não existir
+    cfg = {'roads': [], 'trafficLights': []} 
 
 estado_semaforos.update({tl['roadIndex']: 1 for tl in cfg.get('trafficLights', [])})
 estado_filas.update({r['id']: r.get('initialCount', 0) for r in cfg.get('roads', [])})
@@ -274,7 +303,6 @@ async def enviar_comando_tunel(ip, porta, comunidade, payload_dict):
     return errorIndication, errorStatus, varBinds
 
 def disparar_em_fundo(corotina):
-    """Cria uma thread limpa e isolada para enviar comandos SET sem interromper os GETs"""
     threading.Thread(target=lambda: asyncio.run(corotina), daemon=True).start()
 
 async def enviar_algoritmo_snmp(algo_id):
@@ -298,11 +326,9 @@ async def obter_dados_snmp():
             if not errorInd and not errorStat:
                 for name, val in varBinds:
                     if str(name) == OID_TUNEL:
-                        # Desencriptar a resposta enviada pelo SC
                         resposta_json = cipher.decrypt(bytes(val)).decode('utf-8')
                         dados = json.loads(resposta_json)
 
-                        # Atualizar variáveis globais
                         builtins._tempo_execucao_snmp = dados.get("tempo", 0)
                         builtins._algo_id_snmp = dados.get("algo_id", 4)
                         
@@ -327,12 +353,47 @@ def iniciar_thread_snmp():
 # =====================================================================
 def desenhar_grafo():
     global confirmacao_algoritmo, cfg, nos_base, arestas_base
+    global cipher 
+
+    # --- INICIAR PYGAME PRIMEIRO QUE TUDO ---
     pygame.init()
-    ecra = pygame.display.set_mode((900, 700), pygame.RESIZABLE)
+    ecra = pygame.display.set_mode(RESOLUCAO_BASE, pygame.RESIZABLE)
     pygame.display.set_caption("Dashboard Seguro (Fase B) - Gestão de Tráfego")
     relogio = pygame.time.Clock()
+
+    # --- CICLO DE AUTENTICAÇÃO NATIVO ---
+    autenticado = False
     
-    RESOLUCAO_BASE = (900, 700)
+    while not autenticado:
+        password = autenticacao_nativa_pygame(ecra, relogio)
+        
+        # Testar a password
+        salt = b'GSR_UM_2026'
+        kdf = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=salt, iterations=100000)
+        chave_cofre = base64.urlsafe_b64encode(kdf.derive(password))
+        cofre_cipher = Fernet(chave_cofre)
+
+        try:
+            with open("seguranca.key", "rb") as f:
+                chave_encriptada = f.read()
+            CHAVE_SECRETA = cofre_cipher.decrypt(chave_encriptada)
+            cipher = Fernet(CHAVE_SECRETA)
+            autenticado = True
+            print("[OK] Chave carregada com sucesso! Ligação Segura Ativa.\n")
+        except Exception:
+            # Se falhar, pinta de novo e mostra erro temporário
+            ecra.fill((30, 35, 40))
+            fonte = pygame.font.SysFont("Arial", 20, bold=True)
+            msg = fonte.render("ERRO: Password Incorreta ou Cofre Ausente!", True, (255, 80, 80))
+            ecra.blit(msg, msg.get_rect(center=(RESOLUCAO_BASE[0]//2, RESOLUCAO_BASE[1]//2)))
+            pygame.display.flip()
+            time.sleep(2) # Mostra o erro 2 segundos e volta a pedir a password
+
+
+    # --- 3. INICIAR COMUNICAÇÕES SNMP SÓ APÓS A CHAVE ESTAR CONFIRMADA ---
+    threading.Thread(target=iniciar_thread_snmp, daemon=True).start()
+
+    # --- 4. CONTINUAR PARA A INTERFACE NORMAL ---
     tamanho_atual = RESOLUCAO_BASE
     nos_base, arestas_base = gerar_topologia_dinamica(cfg, RESOLUCAO_BASE)
     
@@ -676,5 +737,4 @@ def desenhar_grafo():
         relogio.tick(30)
 
 if __name__ == "__main__":
-    threading.Thread(target=iniciar_thread_snmp, daemon=True).start()
     desenhar_grafo()
