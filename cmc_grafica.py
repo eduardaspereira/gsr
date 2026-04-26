@@ -65,7 +65,7 @@ def autenticacao_nativa_pygame(ecra, relogio):
         
         # Textos
         txt_t = fonte_titulo.render("SISTEMA CENTRAL DE TRÁFEGO", True, (255, 255, 255))
-        txt_s = fonte_texto.render("Introduz a password mestra para destrancar a chave:", True, (200, 200, 200))
+        txt_s = fonte_texto.render("Introduza a password para destrancar a chave:", True, (200, 200, 200))
         ecra.blit(txt_t, txt_t.get_rect(center=(RESOLUCAO_BASE[0]//2, RESOLUCAO_BASE[1]//2 - 80)))
         ecra.blit(txt_s, txt_s.get_rect(center=(RESOLUCAO_BASE[0]//2, RESOLUCAO_BASE[1]//2 - 45)))
         
