@@ -1,3 +1,15 @@
+# ==============================================================================
+# Ficheiro: sd_RL.py
+# Autores: Eduarda Pereira, Gonçalo Ferreira, Gonçalo Magalhães
+# Descrição: Sistema de Decisão baseado em Aprendizagem por Reforço (Q-Learning).
+#            Cada cruzamento age como um Agente autónomo que aprende a melhor 
+#            duração de verde (Ação) para um dado volume de trânsito (Estado),
+#            maximizando o escoamento local (Recompensa).
+#
+# Equação de Atualização (Bellman):
+# $$Q(s, a) \leftarrow Q(s, a) + \alpha \left[ R + \gamma \max_{a'} Q(s', a') - Q(s, a) \right]$$
+# ==============================================================================
+
 import asyncio
 import random
 import json
@@ -5,158 +17,186 @@ import os
 import hashlib
 
 class SistemaDecisaoRL:
-    def __init__(self, shared_mib, config):
-        self.mib = shared_mib
-        self.cfg = config
-        self.base = "1.3.6.1.3.2026.1"
+    """
+    Agente Q-Learning para otimização de semáforos.
+    Utiliza uma Q-Table persistente e recompensas baseadas na variação do número
+    de veículos à espera no cruzamento (delta de escoamento local).
+    """
+    def __init__(self, mib_partilhada, configuracao):
+        self.mib_partilhada = mib_partilhada
+        self.configuracao = configuracao
+        self.base_oid = "1.3.6.1.3.2026.1"
 
-        # --- GERAR ASSINATURA ÚNICA DO MAPA ---
-        map_str = "CR:" + ",".join(str(c['id']) for c in config.get('crossroads', []))
-        map_str += "|V:" + ",".join(str(r['id']) for r in config.get('roads', []))
-        self.map_hash = hashlib.md5(map_str.encode()).hexdigest()[:8]
+        # --- GERAR ASSINATURA ÚNICA DO MAPA (Evita mistura de cérebros) ---
+        assinatura_mapa = "CR:" + ",".join(str(c['id']) for c in configuracao.get('crossroads', []))
+        assinatura_mapa += "|V:" + ",".join(str(r['id']) for r in configuracao.get('roads', []))
+        self.hash_mapa = hashlib.md5(assinatura_mapa.encode()).hexdigest()[:8]
         
-        # Mudei para _v2 para forçar a criar um cérebro novo e ignorar o antigo cego!
-        self.q_table_file = f"q_table_mapa_{self.map_hash}.json"
+        self.ficheiro_cerebro = f"q_table_mapa_{self.hash_mapa}.json"
         
-        # --- PARÂMETROS DO Q-LEARNING ---
+        # --- PARÂMETROS MATEMÁTICOS DO Q-LEARNING ---
         self.q_table = {}
-        self.alpha = 0.1      # Learning Rate 
-        self.gamma = 0.9      # Discount Factor
-        self.epsilon = 0.2    # Exploration Rate
+        self.alpha = 0.1      # Taxa de Aprendizagem (Learning Rate)
+        self.gamma = 0.9      # Fator de Desconto (Discount Factor - visão de futuro)
+        self.epsilon = 0.2    # Taxa de Exploração (Exploration Rate inicial)
         
         self.precisa_treino = True 
         self.carregar_cerebro()
         
-        self.last_state = {}
-        self.last_action = {}
-        
-        # NOVIDADE: Agora cada cruzamento vigia apenas os seus próprios carros!
-        self.last_local_count = {c['id']: 0 for c in config['crossroads']}
+        # Memória de Curto Prazo (para calcular o delta R na transição s -> s')
+        self.estado_anterior = {}
+        self.acao_anterior = {}
+        self.contagem_local_anterior = {c['id']: 0 for c in configuracao['crossroads']}
 
-        self.crossroads = {}
-        for c in config['crossroads']:
-            self.crossroads[c['id']] = {
+        self.estado_cruzamentos = {}
+        for cruzamento in configuracao['crossroads']:
+            self.estado_cruzamentos[cruzamento['id']] = {
                 'eixo_ativo': 2, 
                 'cor_eixo': 2,   
                 'tempo_restante': 15
             }
 
     def carregar_cerebro(self):
-        if os.path.exists(self.q_table_file):
+        """Carrega a Q-Table do disco (se existir para a topologia atual)."""
+        if os.path.exists(self.ficheiro_cerebro):
             try:
-                with open(self.q_table_file, 'r') as f:
-                    q_table_str_keys = json.load(f)
-                    self.q_table = {int(k): v for k, v in q_table_str_keys.items()}
-                print(f"[SD-RL 2.0] Cérebro carregado: {self.q_table_file} ({len(self.q_table)} estados)")
+                with open(self.ficheiro_cerebro, 'r') as ficheiro:
+                    q_table_chaves_str = json.load(ficheiro)
+                    # O JSON guarda chaves como string, temos de converter de volta para int (Estado)
+                    self.q_table = {int(k): v for k, v in q_table_chaves_str.items()}
+                print(f"[SD-RL] Cérebro carregado: {self.ficheiro_cerebro} ({len(self.q_table)} estados mapeados)")
                 self.precisa_treino = False
-                self.epsilon = 0.05 
-            except Exception as e:
-                print(f"[SD-RL 2.0] Erro ao ler cérebro: {e}. Vai treinar de novo.")
+                self.epsilon = 0.05 # Reduz a exploração, foca no conhecimento adquirido (Exploitation)
+            except Exception as erro:
+                print(f"[SD-RL] Erro ao ler cérebro corrompido: {erro}. A iniciar treino de raiz.")
         else:
-            print(f"[SD-RL 2.0] Novo modelo detetado. Vai treinar de raiz.")
+            print(f"[SD-RL] Novo cenário detetado (Hash: {self.hash_mapa}). A iniciar treino de raiz.")
 
     def guardar_cerebro(self):
+        """Persiste a matriz de conhecimento Q-Table no disco em formato JSON."""
         try:
-            with open(self.q_table_file, 'w') as f:
-                json.dump(self.q_table, f)
-            print(f"[SD-RL 2.0] Cérebro gravado com sucesso.")
-        except Exception as e:
+            with open(self.ficheiro_cerebro, 'w') as ficheiro:
+                json.dump(self.q_table, ficheiro)
+            print(f"[SD-RL] Cérebro gravado com sucesso.")
+        except Exception:
             pass
 
-    def get_local_cars(self, cr_id):
-        """NOVIDADE: Conta APENAS os carros num cruzamento específico."""
+    def _contar_carros_locais(self, id_cruzamento):
+        """Devolve o número total de veículos à espera em TODAS as vias de um cruzamento específico."""
         total = 0
-        for tl in self.cfg['trafficLights']:
-            if tl.get('crID') == cr_id or tl.get('tlCrossroadID') == cr_id:
-                rid = tl['roadIndex']
-                total += self.mib.get(f"{self.base}.3.1.6.{rid}", 0)
+        for semaforo in self.configuracao['trafficLights']:
+            if semaforo.get('crID') == id_cruzamento or semaforo.get('tlCrossroadID') == id_cruzamento:
+                id_rua = semaforo['roadIndex']
+                total += self.mib_partilhada.get(f"{self.base_oid}.3.1.6.{id_rua}", 0)
         return total
 
-    def get_state(self, cr_id, eixo_ativo):
-        """NOVIDADE: A IA agora vê as duas ruas (Verde e Vermelho) ao mesmo tempo!"""
+    def _obter_estado_cruzamento(self, id_cruzamento, eixo_ativo):
+        """
+        Observa o ambiente e condensa-o num Estado Discreto (1D) usando Base 4.
+        Avalia o peso das vias a Verde e das vias a Vermelho em simultâneo.
+        """
         carros_verde = 0
         carros_vermelho = 0
         
-        for tl in self.cfg['trafficLights']:
-            if tl.get('crID') == cr_id or tl.get('tlCrossroadID') == cr_id:
-                rid = tl['roadIndex']
-                qtd = self.mib.get(f"{self.base}.3.1.6.{rid}", 0)
-                if tl['axis'] == eixo_ativo:
-                    carros_verde += qtd
+        for semaforo in self.configuracao['trafficLights']:
+            if semaforo.get('crID') == id_cruzamento or semaforo.get('tlCrossroadID') == id_cruzamento:
+                id_rua = semaforo['roadIndex']
+                quantidade = self.mib_partilhada.get(f"{self.base_oid}.3.1.6.{id_rua}", 0)
+                
+                if semaforo['axis'] == eixo_ativo:
+                    carros_verde += quantidade
                 else:
-                    carros_vermelho += qtd
+                    carros_vermelho += quantidade
                     
-        def discretize(qtd):
-            if qtd < 10: return 0  # Vazio
-            if qtd < 25: return 1  # Normal
-            if qtd < 45: return 2  # Cheio
-            return 3               # Crítico / Gridlock iminente!
+        def discretizar(qtd):
+            if qtd < 10: return 0  # Trânsito Vazio/Leve
+            if qtd < 25: return 1  # Trânsito Normal
+            if qtd < 45: return 2  # Trânsito Pesado
+            return 3               # Gridlock (Congestionamento Crítico)
             
-        # ATENÇÃO: Se usares a Opção B, tens de mudar a linha do return no final do get_state!
-        # Como agora tens 4 níveis (0, 1, 2, 3), multiplicas por 4 em vez de 3:
-        return discretize(carros_verde) * 4 + discretize(carros_vermelho)
+        # Codificação de 2 variáveis (0 a 3) num único inteiro (0 a 15)
+        estado_codificado = discretizar(carros_verde) * 4 + discretizar(carros_vermelho)
+        return estado_codificado
 
     async def start(self):
-        print("[SD-RL 2.0] Inicializado com Visão 360º e Recompensa Local.")
+        """Ciclo de vida (não invocado devido ao controlo sincronizado do Sistema Central)."""
+        print("[SD-RL] Inicializado com Visão 360º e Funções de Recompensa Locais.")
 
     async def update(self, current_step=None, fast_forward_step=None):
-        step = current_step if current_step is not None else fast_forward_step
-        if step is None: step = 0.5
+        """Ciclo de Decisão Principal: Avalia recompensas, atualiza a Q-Table e escolhe novas ações."""
+        passo = current_step if current_step is not None else fast_forward_step
+        if passo is None: 
+            passo = 0.5
         
-        yellow_time = self.mib.get(f"{self.base}.1.5.0", 3)
-        acoes_possiveis = [15, 30, 45]
+        tempo_amarelo = self.mib_partilhada.get(f"{self.base_oid}.1.5.0", 3)
+        acoes_possiveis = [15, 30, 45] # Durações de Verde disponíveis para o Agente
 
-        for cr_id, cr in self.crossroads.items():
-            cr['tempo_restante'] -= step
+        for id_cruzamento, cruzamento in self.estado_cruzamentos.items():
+            cruzamento['tempo_restante'] -= passo
             
-            if cr['tempo_restante'] <= 0:
-                if cr['cor_eixo'] == 2: # Verde -> Amarelo
-                    cr['cor_eixo'] = 3
-                    cr['tempo_restante'] = yellow_time
+            if cruzamento['tempo_restante'] <= 0:
+                if cruzamento['cor_eixo'] == 2: # Terminou o Verde -> Muda para Amarelo
+                    cruzamento['cor_eixo'] = 3
+                    cruzamento['tempo_restante'] = tempo_amarelo
                 
-                elif cr['cor_eixo'] == 3: # Amarelo -> Decisão
-                    cr['cor_eixo'] = 2
-                    cr['eixo_ativo'] = 1 if cr['eixo_ativo'] == 2 else 2
+                elif cruzamento['cor_eixo'] == 3: # Terminou o Amarelo -> FASE DE DECISÃO RL
+                    cruzamento['cor_eixo'] = 2
+                    cruzamento['eixo_ativo'] = 1 if cruzamento['eixo_ativo'] == 2 else 2
                     
-                    # --- NOVIDADE: CÁLCULO DA RECOMPENSA (LOCAL E JUSTA) ---
-                    carros_atuais = self.get_local_cars(cr_id)
-                    reward = self.last_local_count[cr_id] - carros_atuais 
-                    self.last_local_count[cr_id] = carros_atuais
+                    # 1. CÁLCULO DA RECOMPENSA (R)
+                    # Quantos carros saíram do cruzamento desde a última decisão?
+                    carros_atuais = self._contar_carros_locais(id_cruzamento)
+                    recompensa = self.contagem_local_anterior[id_cruzamento] - carros_atuais 
+                    self.contagem_local_anterior[id_cruzamento] = carros_atuais
                     
-                    estado_atual = self.get_state(cr_id, cr['eixo_ativo'])
+                    # 2. OBSERVAÇÃO DO NOVO ESTADO (s')
+                    estado_atual = self._obter_estado_cruzamento(id_cruzamento, cruzamento['eixo_ativo'])
                     
                     if estado_atual not in self.q_table:
                         self.q_table[estado_atual] = [0.0, 0.0, 0.0]
 
-                    if cr_id in self.last_state:
-                        s_ant = self.last_state[cr_id]
-                        a_ant = self.last_action[cr_id]
+                    # 3. ATUALIZAÇÃO DA EQUAÇÃO DE BELLMAN
+                    if id_cruzamento in self.estado_anterior:
+                        s_ant = self.estado_anterior[id_cruzamento]
+                        a_ant = self.acao_anterior[id_cruzamento]
                         max_futuro = max(self.q_table[estado_atual])
-                        self.q_table[s_ant][a_ant] += self.alpha * (reward + self.gamma * max_futuro - self.q_table[s_ant][a_ant])
+                        
+                        # Q(s,a) = Q(s,a) + alpha * [R + gamma * max(Q(s',a')) - Q(s,a)]
+                        delta_aprendizagem = recompensa + self.gamma * max_futuro - self.q_table[s_ant][a_ant]
+                        self.q_table[s_ant][a_ant] += self.alpha * delta_aprendizagem
 
+                    # 4. POLÍTICA DE SELEÇÃO DE AÇÃO (Epsilon-Greedy)
                     sorteio = random.uniform(0, 1)
                     if sorteio < self.epsilon:
-                        acao_idx = random.randint(0, 2)
-                        tipo_log = "EXPLORAÇÃO"
+                        # Exploração (Exploration): Testa uma ação aleatória
+                        indice_acao = random.randint(0, 2)
+                        tipo_registo = "EXPLORAÇÃO"
                     else:
-                        acao_idx = self.q_table[estado_atual].index(max(self.q_table[estado_atual]))
-                        tipo_log = "INTELIGENTE"
+                        # Aproveitamento (Exploitation): Escolhe a ação com maior Q-Value
+                        indice_acao = self.q_table[estado_atual].index(max(self.q_table[estado_atual]))
+                        tipo_registo = "INTELIGENTE"
 
-                    tempo_verde = acoes_possiveis[acao_idx]
-                    cr['tempo_restante'] = tempo_verde
+                    tempo_verde_escolhido = acoes_possiveis[indice_acao]
+                    cruzamento['tempo_restante'] = tempo_verde_escolhido
                     
-                    self.last_state[cr_id] = estado_atual
-                    self.last_action[cr_id] = acao_idx
+                    # Guarda o contexto para a próxima iteração
+                    self.estado_anterior[id_cruzamento] = estado_atual
+                    self.acao_anterior[id_cruzamento] = indice_acao
                     
+                    # Apenas imprime os logs se não estiver em fase de Treino (fast-forward)
                     if not fast_forward_step: 
-                        print(f"[RL] Cruzamento {cr_id} | Estado {estado_atual} | Decisão: {tipo_log} -> {tempo_verde}s")
+                        print(f"[RL] Cruzamento C{id_cruzamento} | Estado {estado_atual} | Decisão: {tipo_registo} -> {tempo_verde_escolhido}s")
 
-        for tl in self.cfg['trafficLights']:
-            rid = tl['roadIndex']
-            cr = self.crossroads[tl['crID']] 
-            if tl['axis'] == cr['eixo_ativo']:
-                self.mib[f"{self.base}.4.1.3.{rid}"] = cr['cor_eixo']
-                self.mib[f"{self.base}.4.1.4.{rid}"] = max(0, int(cr['tempo_restante']))
+        # ====================================================================
+        # SINCRONIZAÇÃO COM A MIB
+        # ====================================================================
+        for semaforo in self.configuracao['trafficLights']:
+            id_rua = semaforo['roadIndex']
+            cruzamento = self.estado_cruzamentos[semaforo['crID']] 
+            
+            if semaforo['axis'] == cruzamento['eixo_ativo']:
+                self.mib_partilhada[f"{self.base_oid}.4.1.3.{id_rua}"] = cruzamento['cor_eixo']
+                self.mib_partilhada[f"{self.base_oid}.4.1.4.{id_rua}"] = max(0, int(cruzamento['tempo_restante']))
             else:
-                self.mib[f"{self.base}.4.1.3.{rid}"] = 1 # Red
-                self.mib[f"{self.base}.4.1.4.{rid}"] = 0
+                self.mib_partilhada[f"{self.base_oid}.4.1.3.{id_rua}"] = 1 # Vermelho
+                self.mib_partilhada[f"{self.base_oid}.4.1.4.{id_rua}"] = 0

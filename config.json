@@ -1,96 +1,96 @@
 {
-  "geral": {
-    "simStepDuration": 5,
-    "algoMinGreenTime": 15,
-    "algoYellowTime": 3
-  },
-  "crossroads": [
-    { "id": 1, "mode": 1 },
-    { "id": 2, "mode": 1 },
-    { "id": 4, "mode": 1 },
-    { "id": 3, "mode": 1 }
-  ],
-  "roads": [
-    { "id": 101, "name": "Input Oeste (->C1)", "type": 3, "rtg": 5, "maxCapacity": 50, "initialCount": 0 },
-    { "id": 102, "name": "Input Norte (->C2)", "type": 3, "rtg": 5, "maxCapacity": 50, "initialCount": 0 },
-    { "id": 103, "name": "Input Este (->C3)",  "type": 3, "rtg": 5, "maxCapacity": 50, "initialCount": 0 },
-    { "id": 104, "name": "Input Sul (->C4)",   "type": 3, "rtg": 5, "maxCapacity": 50, "initialCount": 0 },
-    
-    { "id": 1, "name": "Loop C1->C2", "type": 1, "rtg": 0, "maxCapacity": 30, "initialCount": 0 },
-    { "id": 2, "name": "Loop C2->C3", "type": 1, "rtg": 0, "maxCapacity": 30, "initialCount": 0 },
-    { "id": 3, "name": "Loop C3->C4", "type": 1, "rtg": 0, "maxCapacity": 30, "initialCount": 0 },
-    { "id": 4, "name": "Loop C4->C1", "type": 1, "rtg": 0, "maxCapacity": 30, "initialCount": 0 },
+    "geral": {
+        "simStepDuration": 5,
+        "algoMinGreenTime": 15,
+        "algoYellowTime": 3
+    },
+    "crossroads": [
+        { "id": 1, "mode": 1 },
+        { "id": 2, "mode": 1 },
+        { "id": 3, "mode": 1 },
+        { "id": 4, "mode": 1 }
+    ],
+    "roads": [
+        { "id": 101, "name": "Input Oeste (->C1)", "type": 3, "rtg": 5, "maxCapacity": 50, "initialCount": 0 },
+        { "id": 102, "name": "Input Norte (->C2)", "type": 3, "rtg": 5, "maxCapacity": 50, "initialCount": 0 },
+        { "id": 103, "name": "Input Este (->C3)",  "type": 3, "rtg": 5, "maxCapacity": 50, "initialCount": 0 },
+        { "id": 104, "name": "Input Sul (->C4)",   "type": 3, "rtg": 5, "maxCapacity": 50, "initialCount": 0 },
+        
+        { "id": 1, "name": "Loop C1->C2", "type": 1, "rtg": 0, "maxCapacity": 30, "initialCount": 0 },
+        { "id": 2, "name": "Loop C2->C3", "type": 1, "rtg": 0, "maxCapacity": 30, "initialCount": 0 },
+        { "id": 3, "name": "Loop C3->C4", "type": 1, "rtg": 0, "maxCapacity": 30, "initialCount": 0 },
+        { "id": 4, "name": "Loop C4->C1", "type": 1, "rtg": 0, "maxCapacity": 30, "initialCount": 0 },
 
-    { "id": 5, "name": "Loop C2->C1", "type": 1, "rtg": 0, "maxCapacity": 30, "initialCount": 0 },
-    { "id": 6, "name": "Loop C3->C2", "type": 1, "rtg": 0, "maxCapacity": 30, "initialCount": 0 },
-    { "id": 7, "name": "Loop C4->C3", "type": 1, "rtg": 0, "maxCapacity": 30, "initialCount": 0 },
-    { "id": 8, "name": "Loop C1->C4", "type": 1, "rtg": 0, "maxCapacity": 30, "initialCount": 0 },
+        { "id": 5, "name": "Loop C2->C1", "type": 1, "rtg": 0, "maxCapacity": 30, "initialCount": 0 },
+        { "id": 6, "name": "Loop C3->C2", "type": 1, "rtg": 0, "maxCapacity": 30, "initialCount": 0 },
+        { "id": 7, "name": "Loop C4->C3", "type": 1, "rtg": 0, "maxCapacity": 30, "initialCount": 0 },
+        { "id": 8, "name": "Loop C1->C4", "type": 1, "rtg": 0, "maxCapacity": 30, "initialCount": 0 },
 
-    { "id": 91, "name": "Saida C1->Oeste", "type": 2, "rtg": 0, "maxCapacity": 999, "initialCount": 0 },
-    { "id": 92, "name": "Saida C2->Norte", "type": 2, "rtg": 0, "maxCapacity": 999, "initialCount": 0 },
-    { "id": 93, "name": "Saida C3->Este",  "type": 2, "rtg": 0, "maxCapacity": 999, "initialCount": 0 },
-    { "id": 94, "name": "Saida C4->Sul",   "type": 2, "rtg": 0, "maxCapacity": 999, "initialCount": 0 }
-  ],
-  "trafficLights": [
-    { "roadIndex": 101, "crID": 1, "axis": 2 },
-    { "roadIndex": 4,   "crID": 1, "axis": 1 },
-    { "roadIndex": 5,   "crID": 1, "axis": 2 },
+        { "id": 91, "name": "Saida C1->Oeste", "type": 2, "rtg": 0, "maxCapacity": 999, "initialCount": 0 },
+        { "id": 92, "name": "Saida C2->Norte", "type": 2, "rtg": 0, "maxCapacity": 999, "initialCount": 0 },
+        { "id": 93, "name": "Saida C3->Este",  "type": 2, "rtg": 0, "maxCapacity": 999, "initialCount": 0 },
+        { "id": 94, "name": "Saida C4->Sul",   "type": 2, "rtg": 0, "maxCapacity": 999, "initialCount": 0 }
+    ],
+    "trafficLights": [
+        { "roadIndex": 101, "crID": 1, "axis": 2 },
+        { "roadIndex": 4,   "crID": 1, "axis": 1 },
+        { "roadIndex": 5,   "crID": 1, "axis": 2 },
 
-    { "roadIndex": 102, "crID": 2, "axis": 1 },
-    { "roadIndex": 1,   "crID": 2, "axis": 2 },
-    { "roadIndex": 6,   "crID": 2, "axis": 1 },
+        { "roadIndex": 102, "crID": 2, "axis": 1 },
+        { "roadIndex": 1,   "crID": 2, "axis": 2 },
+        { "roadIndex": 6,   "crID": 2, "axis": 1 },
 
-    { "roadIndex": 103, "crID": 3, "axis": 2 },
-    { "roadIndex": 2,   "crID": 3, "axis": 1 },
-    { "roadIndex": 7,   "crID": 3, "axis": 2 },
+        { "roadIndex": 103, "crID": 3, "axis": 2 },
+        { "roadIndex": 2,   "crID": 3, "axis": 1 },
+        { "roadIndex": 7,   "crID": 3, "axis": 2 },
 
-    { "roadIndex": 104, "crID": 4, "axis": 1 },
-    { "roadIndex": 3,   "crID": 4, "axis": 2 },
-    { "roadIndex": 8,   "crID": 4, "axis": 1 }
-  ],
-  "links": [
-    { "src": 101, "dest": 1, "flowRate": 50 },
-    { "src": 101, "dest": 8, "flowRate": 50 },
+        { "roadIndex": 104, "crID": 4, "axis": 1 },
+        { "roadIndex": 3,   "crID": 4, "axis": 2 },
+        { "roadIndex": 8,   "crID": 4, "axis": 1 }
+    ],
+    "links": [
+        { "src": 101, "dest": 1, "flowRate": 50 },
+        { "src": 101, "dest": 8, "flowRate": 50 },
 
-    { "src": 102, "dest": 2, "flowRate": 50 },
-    { "src": 102, "dest": 5, "flowRate": 50 },
+        { "src": 102, "dest": 2, "flowRate": 50 },
+        { "src": 102, "dest": 5, "flowRate": 50 },
 
-    { "src": 103, "dest": 3, "flowRate": 50 },
-    { "src": 103, "dest": 6, "flowRate": 50 },
+        { "src": 103, "dest": 3, "flowRate": 50 },
+        { "src": 103, "dest": 6, "flowRate": 50 },
 
-    { "src": 104, "dest": 4, "flowRate": 50 },
-    { "src": 104, "dest": 7, "flowRate": 50 },
+        { "src": 104, "dest": 4, "flowRate": 50 },
+        { "src": 104, "dest": 7, "flowRate": 50 },
 
-    { "src": 4, "dest": 1, "flowRate": 40 },
-    { "src": 4, "dest": 8, "flowRate": 30 },
-    { "src": 4, "dest": 91, "flowRate": 30 },
+        { "src": 4, "dest": 1, "flowRate": 40 },
+        { "src": 4, "dest": 8, "flowRate": 30 },
+        { "src": 4, "dest": 91, "flowRate": 30 },
 
-    { "src": 1, "dest": 2, "flowRate": 40 },
-    { "src": 1, "dest": 5, "flowRate": 30 },
-    { "src": 1, "dest": 92, "flowRate": 30 },
+        { "src": 1, "dest": 2, "flowRate": 40 },
+        { "src": 1, "dest": 5, "flowRate": 30 },
+        { "src": 1, "dest": 92, "flowRate": 30 },
 
-    { "src": 2, "dest": 3, "flowRate": 40 },
-    { "src": 2, "dest": 6, "flowRate": 30 },
-    { "src": 2, "dest": 93, "flowRate": 30 },
+        { "src": 2, "dest": 3, "flowRate": 40 },
+        { "src": 2, "dest": 6, "flowRate": 30 },
+        { "src": 2, "dest": 93, "flowRate": 30 },
 
-    { "src": 3, "dest": 4, "flowRate": 40 },
-    { "src": 3, "dest": 7, "flowRate": 30 },
-    { "src": 3, "dest": 94, "flowRate": 30 },
+        { "src": 3, "dest": 4, "flowRate": 40 },
+        { "src": 3, "dest": 7, "flowRate": 30 },
+        { "src": 3, "dest": 94, "flowRate": 30 },
 
-    { "src": 5, "dest": 8, "flowRate": 40 },
-    { "src": 5, "dest": 1, "flowRate": 30 },
-    { "src": 5, "dest": 91, "flowRate": 30 },
+        { "src": 5, "dest": 8, "flowRate": 40 },
+        { "src": 5, "dest": 1, "flowRate": 30 },
+        { "src": 5, "dest": 91, "flowRate": 30 },
 
-    { "src": 6, "dest": 5, "flowRate": 40 },
-    { "src": 6, "dest": 2, "flowRate": 30 },
-    { "src": 6, "dest": 92, "flowRate": 30 },
+        { "src": 6, "dest": 5, "flowRate": 40 },
+        { "src": 6, "dest": 2, "flowRate": 30 },
+        { "src": 6, "dest": 92, "flowRate": 30 },
 
-    { "src": 7, "dest": 6, "flowRate": 40 },
-    { "src": 7, "dest": 3, "flowRate": 30 },
-    { "src": 7, "dest": 93, "flowRate": 30 },
+        { "src": 7, "dest": 6, "flowRate": 40 },
+        { "src": 7, "dest": 3, "flowRate": 30 },
+        { "src": 7, "dest": 93, "flowRate": 30 },
 
-    { "src": 8, "dest": 7, "flowRate": 40 },
-    { "src": 8, "dest": 4, "flowRate": 30 },
-    { "src": 8, "dest": 94, "flowRate": 30 }
-  ]
+        { "src": 8, "dest": 7, "flowRate": 40 },
+        { "src": 8, "dest": 4, "flowRate": 30 },
+        { "src": 8, "dest": 94, "flowRate": 30 }
+    ]
 }

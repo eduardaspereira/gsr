@@ -1,81 +1,127 @@
-import base64, json
-import getpass
-from cryptography.fernet import Fernet, InvalidToken
+# ==============================================================================
+# Ficheiro: cmc.py
+# Autores: Eduarda Pereira, Gonçalo Ferreira, Gonçalo Magalhães
+# Descrição: Consola de Monitorização e Controlo (Interface CLI). 
+#            Permite ao administrador enviar comandos para o Sistema Central 
+#            via terminal, utilizando o mesmo mecanismo de Túnel Seguro (JSON + Fernet) 
+#            presente no Dashboard Gráfico.
+# ==============================================================================
+
+import sys
+import base64
+import json
+import asyncio
+from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
-
-print("=== INICIALIZAÇÃO SEGURA ===")
-password = getpass.getpass("Introduz a password mestra para destrancar a chave: ").encode()
-
-salt = b'GSR_UM_2026'
-kdf = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=salt, iterations=100000)
-chave_cofre = base64.urlsafe_b64encode(kdf.derive(password))
-cofre_cipher = Fernet(chave_cofre)
-
-try:
-    with open("seguranca.key", "rb") as f:
-        chave_encriptada = f.read()
-    CHAVE_SECRETA = cofre_cipher.decrypt(chave_encriptada)
-    cipher = Fernet(CHAVE_SECRETA)
-    print("Chave carregada com sucesso!")
-except Exception:
-    print("ERRO: Password incorreta ou ficheiro 'seguranca.key' em falta!")
-    exit(1)
-
-OID_TUNEL = "1.3.6.1.3.2026.99.1.0"
-import asyncio
 from pysnmp.hlapi.asyncio import *
 
-async def enviar_comando_tunel(ip, porta, comunidade, payload_dict):
-    snmpEngine = SnmpEngine()
+# OID exclusivo para canalizar tráfego seguro
+OID_TUNEL = "1.3.6.1.3.2026.99.1.0"
+
+# =====================================================================
+# 1. FUNÇÕES DE SEGURANÇA
+# =====================================================================
+def inicializar_cifra_segura():
+    """
+    Lê a password da linha de comandos, deriva a KEK e destranca a DEK 
+    (Chave Mestra) armazenada no ficheiro 'seguranca.key'.
+    """
+    print("=====================================================")
+    print("=== INICIALIZAÇÃO SEGURA (CMC CLI) ===")
+    print("=====================================================")
+    
+    if len(sys.argv) < 2:
+        print("[ERRO CRÍTICO] Password em falta!")
+        print("Uso correto: python3 cmc.py <a_tua_password>")
+        sys.exit(1)
+
+    password_lida = sys.argv[1].encode()
+
+    salt = b'GSR_UM_2026'
+    kdf = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=salt, iterations=100000)
+    chave_cofre = base64.urlsafe_b64encode(kdf.derive(password_lida))
+    ferramenta_cofre = Fernet(chave_cofre)
+
+    try:
+        with open("seguranca.key", "rb") as f:
+            chave_encriptada = f.read()
+        chave_mestra = ferramenta_cofre.decrypt(chave_encriptada)
+        print("[OK] Chave carregada com sucesso. Túnel Seguro ativado!")
+        return Fernet(chave_mestra)
+    except Exception:
+        print("[ERRO] Password incorreta ou ficheiro 'seguranca.key' em falta!")
+        sys.exit(1)
+
+
+# =====================================================================
+# 2. FUNÇÕES DE REDE (SNMP)
+# =====================================================================
+async def enviar_comando_tunel(ip, porta, comunidade, dicionario_payload, cifra):
+    """
+    Serializa o comando num JSON, encripta-o com a Chave Mestra e envia
+    o bloco opaco de bytes através de um pacote SNMP perfeitamente normal.
+    """
+    motor_snmp = SnmpEngine()
     
     # 1. Empacotar e Encriptar
-    payload_json = json.dumps(payload_dict).encode('utf-8')
-    payload_encriptado = cipher.encrypt(payload_json)
+    payload_json = json.dumps(dicionario_payload).encode('utf-8')
+    payload_cifrado = cifra.encrypt(payload_json)
     
-    # 2. Enviar via SET no Túnel
-    errorIndication, errorStatus, errorIndex, varBinds = await setCmd(
-        snmpEngine,
+    # 2. Enviar via SET no Túnel Seguro (como OctetString)
+    erro_ind, erro_est, indice_erro, binds = await setCmd(
+        motor_snmp,
         CommunityData(comunidade, mpModel=1),
         UdpTransportTarget((ip, porta)),
         ContextData(),
-        ObjectType(ObjectIdentity(OID_TUNEL), OctetString(payload_encriptado))
+        ObjectType(ObjectIdentity(OID_TUNEL), OctetString(payload_cifrado))
     )
 
-    if errorIndication or errorStatus:
-        print("[Erro de Comunicação Segura] O pacote foi rejeitado ou falhou.")
+    if erro_ind or erro_est:
+        print("[ERRO DE REDE] O pacote seguro foi rejeitado ou falhou a entrega ao Sistema Central.")
     else:
-        print("-> Comando seguro entregue com sucesso!")
+        print("-> [SUCESSO] Comando seguro entregue e validado!")
         
-    snmpEngine.transportDispatcher.closeDispatcher()
+    motor_snmp.transportDispatcher.closeDispatcher()
 
-async def enviar_comando_snmp(ip, porta, comunidade, oid, valor, tipo_snmp):
-    snmpEngine = SnmpEngine()
+
+async def enviar_comando_snmp_puro(ip, porta, comunidade, oid, valor, tipo_snmp):
+    """
+    [FUNÇÃO DE TESTE / LEGACY] 
+    Envia um pacote SNMP clássico em texto limpo.
+    Nota: O Sistema Central atual (sc.py) vai rejeitar e bloquear este tráfego
+    por questões de segurança (Defesa Ativa). Útil para demonstrar a robustez do projeto.
+    """
+    motor_snmp = SnmpEngine()
     
-    # Executa o comando SNMP SET de forma assíncrona
-    errorIndication, errorStatus, errorIndex, varBinds = await setCmd(
-        snmpEngine,
-        CommunityData(comunidade, mpModel=1), # SNMPv2c
+    erro_ind, erro_est, indice_erro, binds = await setCmd(
+        motor_snmp,
+        CommunityData(comunidade, mpModel=1), 
         UdpTransportTarget((ip, porta)),
         ContextData(),
         ObjectType(ObjectIdentity(oid), tipo_snmp(valor))
     )
 
-    if errorIndication:
-        print(f"[Erro de Rede] {errorIndication} -> O SC (Sistema Central) está a correr?")
-    elif errorStatus:
-        print(f"[Erro SNMP] {errorStatus.prettyPrint()}")
+    if erro_ind:
+        print(f"[Erro de Rede] {erro_ind} -> O Sistema Central está a correr?")
+    elif erro_est:
+        print(f"[Erro SNMP] {erro_est.prettyPrint()} -> (Provavelmente bloqueado pela segurança do SC)")
     else:
-        print(f"-> Sucesso! Comando enviado para a MIB.")
+        print(f"-> Sucesso! Comando enviado diretamente para a MIB.")
         
-    snmpEngine.transportDispatcher.closeDispatcher()
+    motor_snmp.transportDispatcher.closeDispatcher()
 
-def iniciar_cmc():
+
+# =====================================================================
+# 3. INTERFACE DE UTILIZADOR (LOOP CLI)
+# =====================================================================
+def iniciar_cmc(cifra):
+    """Loop principal de interpretação de comandos da consola."""
     print("=====================================================")
-    print("      CMC: Consola de Monitorização e Controlo")
+    print("      CMC: Consola de Monitorização e Controlo       ")
     print("=====================================================")
     print("Comandos disponíveis:")
-    print("  rtg <via> <valor>  - Altera fluxo. Ex: rtg 101 10")
+    print("  rtg <via> <valor>  - Altera taxa geradora. Ex: rtg 101 10")
     print("  o <via> <modo>     - Override (0: Auto | 1: Vermelho | 2: Verde). Ex: o 101 2")
     print("  alg <modo>         - Algoritmo (1:RR | 2:Heurística | 3:RL | 4:BP). Ex: alg 3")
     print("  sair               - Termina a consola")
@@ -84,7 +130,6 @@ def iniciar_cmc():
     ip_sc = "127.0.0.1"
     porta_sc = 16161
     comunidade = "public"
-    
 
     while True:
         try:
@@ -97,47 +142,47 @@ def iniciar_cmc():
                 
             partes = comando.split()
             
-            # --- RTG ---
+            # --- RTG (Injeção de Tráfego) ---
             if partes[0] == 'rtg' and len(partes) == 3:
-                road_index = int(partes[1])
+                id_via = int(partes[1])
                 novo_rtg = int(partes[2])
+                payload = {"comando": "SET_RTG", "via": id_via, "valor": novo_rtg}
+                asyncio.run(enviar_comando_tunel(ip_sc, porta_sc, comunidade, payload, cifra))
                 
-                payload = {"comando": "SET_RTG", "via": road_index, "valor": novo_rtg}
-                asyncio.run(enviar_comando_tunel(ip_sc, porta_sc, comunidade, payload))
-                # Teste DDOS
-                #for _ in range(5):
-                #    asyncio.run(enviar_comando_tunel(ip_sc, porta_sc, comunidade, payload))
-
-                
-            # --- OVERRIDE ---
+            # --- OVERRIDE (Forçar Semáforo) ---
             elif partes[0] == 'o' and len(partes) == 3:
-                road_index = int(partes[1])
+                id_via = int(partes[1])
                 modo = int(partes[2])
                 if modo not in [0, 1, 2]:
-                    print("Erro: Modo de override inválido. Usa 0, 1 ou 2.")
+                    print("[ERRO] Modo de override inválido. Usa 0, 1 ou 2.")
                     continue
                 
-                payload = {"comando": "SET_OVERRIDE", "via": road_index, "modo": modo}
-                asyncio.run(enviar_comando_tunel(ip_sc, porta_sc, comunidade, payload))
+                payload = {"comando": "SET_OVERRIDE", "via": id_via, "modo": modo}
+                asyncio.run(enviar_comando_tunel(ip_sc, porta_sc, comunidade, payload, cifra))
                 
-            # --- ALGORITMO ---
+            # --- ALGORITMO (Mudança de Motor de Decisão) ---
             elif partes[0] == 'alg' and len(partes) == 2:
-                algo_id = int(partes[1])
-                if algo_id not in [1, 2, 3, 4]:
-                    print("Erro: Algoritmo inválido. Usa 1, 2, 3 ou 4.")
+                id_algoritmo = int(partes[1])
+                if id_algoritmo not in [1, 2, 3, 4]:
+                    print("[ERRO] Algoritmo inválido. Usa 1, 2, 3 ou 4.")
                     continue
                 
-                payload = {"comando": "SET_ALG", "alg_id": algo_id}
-                asyncio.run(enviar_comando_tunel(ip_sc, porta_sc, comunidade, payload))
+                payload = {"comando": "SET_ALG", "alg_id": id_algoritmo}
+                asyncio.run(enviar_comando_tunel(ip_sc, porta_sc, comunidade, payload, cifra))
                 
             else:
-                print("Comando inválido. Revê as instruções acima.")
+                print("[ERRO] Comando inválido. Revê as instruções acima.")
                 
         except ValueError:
-            print("Erro: Certifica-te de que os valores inseridos são números inteiros.")
+            print("[ERRO] Certifica-te de que os valores inseridos são números inteiros.")
         except KeyboardInterrupt:
-            print("\nA encerrar a CMC...")
+            print("\n[CMC] A encerrar a Consola...")
             break
 
+
 if __name__ == "__main__":
-    iniciar_cmc()
+    # 1. Autenticação na Fronteira
+    cifra_ativa = inicializar_cifra_segura()
+    
+    # 2. Iniciar Aplicação
+    iniciar_cmc(cifra_ativa)

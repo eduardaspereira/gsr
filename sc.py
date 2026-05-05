@@ -1,3 +1,14 @@
+# ==============================================================================
+# Ficheiro: sc.py
+# Autores: Eduarda Pereira, Gonçalo Ferreira, Gonçalo Magalhães
+# Descrição: Sistema Central (Agente SNMP e Motor de Simulação).
+#            Atua como o servidor do projeto, mantendo a MIB em memória, gerindo
+#            a simulação física (SSFR) e instanciando os Sistemas de Decisão (RL, 
+#            Backpressure, etc). Implementa Defesa Ativa bloqueando acessos em
+#            plain-text e processando apenas comandos via Túnel Seguro (Fernet).
+# ==============================================================================
+
+import sys 
 import base64
 import getpass
 from cryptography.fernet import Fernet, InvalidToken
@@ -21,117 +32,116 @@ from sd_heuristicaocupacao import SistemaDecisaoOcupacao
 from sd_roundrobin import SistemaDecisaoRoundRobin
 
 # =====================================================================
-# 1. SEGURANÇA E ARRANQUE SILENCIOSO (DAEMON MODE)
+# 1. SEGURANÇA E ARRANQUE (VIA ARGUMENTO CLI)
 # =====================================================================
 print("===============================================")
 print("=== INICIALIZAÇÃO SEGURA DO SISTEMA CENTRAL ===")
 print("===============================================")
 
-try:
-    with open(".password_guardada.txt", "rb") as f:
-        password_lida = f.read().strip()
-except FileNotFoundError:
-    print("[ERRO CRÍTICO] Ficheiro de segredos em falta!")
-    print("Corre primeiro o script 'gerar_cofre.py' para configurar a segurança.")
-    import sys
+if len(sys.argv) < 2:
+    print("[ERRO CRÍTICO] Password mestra em falta!")
+    print("Para iniciar o sistema em modo seguro, passa a password como argumento:")
+    print("Comando correto: python3 sc.py <a_tua_password>")
     sys.exit(1)
+
+password_lida = sys.argv[1].encode()
 
 salt = b'GSR_UM_2026'
 kdf = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=salt, iterations=100000)
 chave_cofre = base64.urlsafe_b64encode(kdf.derive(password_lida))
-cofre_cipher = Fernet(chave_cofre)
+cifra_cofre = Fernet(chave_cofre)
 
 try:
-    with open("seguranca.key", "rb") as f:
-        chave_encriptada = f.read()
-    CHAVE_SECRETA = cofre_cipher.decrypt(chave_encriptada)
-    cipher = Fernet(CHAVE_SECRETA)
-    print("[OK] Segredo lido automaticamente. Túnel Seguro ativado!\n")
-except Exception as e:
-    print(f"[ERRO] Falha ao destrancar o cofre com a password lida: {e}")
-    import sys
+    with open("seguranca.key", "rb") as ficheiro_chave:
+        chave_encriptada = ficheiro_chave.read()
+    CHAVE_SECRETA = cifra_cofre.decrypt(chave_encriptada)
+    cifra = Fernet(CHAVE_SECRETA)
+    print("[OK] Segredo lido com sucesso. Túnel Seguro ativado!\n")
+except Exception as erro:
+    print(f"[ERRO] Falha ao destrancar o cofre com a password fornecida: {erro}")
     sys.exit(1)
 
 OID_TUNEL = "1.3.6.1.3.2026.99.1.0"
-historico_ips = {}
+historico_pedidos_ips = {}
 
 # =====================================================================
 # 2. CARREGAMENTO DA CONFIGURAÇÃO E INICIALIZAÇÃO DA MIB
 # =====================================================================
-with open('config3.json', 'r') as f:
-    cfg = json.load(f)
+try:
+    with open('config3.json', 'r') as ficheiro_config:
+        cfg = json.load(ficheiro_config)
+except Exception as e:
+    print(f"[ERRO CRÍTICO] Não foi possível ler o 'config3.json': {e}")
+    sys.exit(1)
 
 mib = {}
 OID_BASE = "1.3.6.1.3.2026.1"
 
-# Inicialização da MIB
+# Inicialização da Base de Informação de Gestão (MIB)
 mib[f"{OID_BASE}.1.2.0"] = cfg['geral']['simStepDuration']
 mib[f"{OID_BASE}.1.4.0"] = cfg['geral']['algoMinGreenTime']
 mib[f"{OID_BASE}.1.5.0"] = cfg['geral']['algoYellowTime']
-mib[f"{OID_BASE}.1.6.0"] = 2 
+mib[f"{OID_BASE}.1.6.0"] = 4  # Algoritmo padrão: Backpressure
 mib[f"{OID_BASE}.1.7.0"] = 0  
 
-for r in cfg['roads']:
-    rid = r['id']
-    mib[f"{OID_BASE}.3.1.4.{rid}"] = r.get('rtg', 5)
-    mib[f"{OID_BASE}.3.1.5.{rid}"] = r.get('maxCapacity', 999)
-    mib[f"{OID_BASE}.3.1.6.{rid}"] = r.get('initialCount', 0)
+for rua in cfg['roads']:
+    id_rua = rua['id']
+    mib[f"{OID_BASE}.3.1.4.{id_rua}"] = rua.get('rtg', 5)
+    mib[f"{OID_BASE}.3.1.5.{id_rua}"] = rua.get('maxCapacity', 999)
+    mib[f"{OID_BASE}.3.1.6.{id_rua}"] = rua.get('initialCount', 0)
 
-for tl in cfg['trafficLights']:
-    rid = tl['roadIndex']
-    mib[f"{OID_BASE}.4.1.2.{rid}"] = 0 
-    mib[f"{OID_BASE}.4.1.3.{rid}"] = 1 
-    mib[f"{OID_BASE}.4.1.4.{rid}"] = 0 
-    mib[f"{OID_BASE}.4.1.5.{rid}"] = cfg['geral']['algoMinGreenTime']
-    mib[f"{OID_BASE}.4.1.6.{rid}"] = cfg['geral']['algoMinGreenTime']
+for semaforo in cfg['trafficLights']:
+    id_rua = semaforo['roadIndex']
+    mib[f"{OID_BASE}.4.1.2.{id_rua}"] = 0 
+    mib[f"{OID_BASE}.4.1.3.{id_rua}"] = 1 
+    mib[f"{OID_BASE}.4.1.4.{id_rua}"] = 0 
+    mib[f"{OID_BASE}.4.1.5.{id_rua}"] = cfg['geral']['algoMinGreenTime']
+    mib[f"{OID_BASE}.4.1.6.{id_rua}"] = cfg['geral']['algoMinGreenTime']
 
-for link in cfg.get('links', []):
-    mib[f"{OID_BASE}.5.1.4.{link['src']}.{link['dest']}"] = 0
+for ligacao in cfg.get('links', []):
+    mib[f"{OID_BASE}.5.1.4.{ligacao['src']}.{ligacao['dest']}"] = 0
+
 
 # =====================================================================
-# 3. RESPONDERS SNMP (A BARREIRA DE SEGURANÇA)
+# 3. RESPONDERS SNMP (A BARREIRA DE SEGURANÇA E DEFESA ATIVA)
 # =====================================================================
-class SCSetResponder(cmdrsp.SetCommandResponder):
+class ResponderSetSeguro(cmdrsp.SetCommandResponder):
+    """Interceta todos os pedidos SNMP SET. Se não vierem pelo Túnel Seguro ou falharem a desencriptação, são bloqueados."""
     def processPdu(self, snmpEngine, messageProcessingModel, securityModel, securityName, securityLevel, contextEngineId, contextName, pduVersion, PDU, maxSizeResponseScopedPDU, stateReference):
-        global historico_ips
-        respPDU = v2c.apiPDU.getResponse(PDU)
-        varBinds = v2c.apiPDU.getVarBinds(PDU)
-        novos_varBinds = []
+        global historico_pedidos_ips
+        resposta_pdu = v2c.apiPDU.getResponse(PDU)
+        binds = v2c.apiPDU.getVarBinds(PDU)
+        novos_binds = []
         
         cliente_id = str(securityName) 
-        agora = time.time()
+        tempo_atual = time.time()
 
-        for oid, val in varBinds:
+        for oid, valor in binds:
             oid_str = str(oid)
             
-            # Intercetar mensagens dirigidas ao Túnel Seguro
             if oid_str == OID_TUNEL:
-                # 1. Desencriptação Primeiro (Para sabermos o que é antes de bloquear)
+                # 1. Tentar Desencriptar o Payload (Verificação de Autenticidade)
                 try:
-                    payload_limpo = cipher.decrypt(bytes(val)).decode('utf-8')
+                    payload_limpo = cifra.decrypt(bytes(valor)).decode('utf-8')
                     comando_json = json.loads(payload_limpo)
-                    cmd_type = comando_json.get("comando", "DESCONHECIDO")
+                    tipo_comando = comando_json.get("comando", "DESCONHECIDO")
                     
-                    # 2. Rate Limiting Inteligente (Baldes separados por tipo de comando)
-                    chave_limite = f"{cliente_id}_{cmd_type}"
-                    if chave_limite in historico_ips and (agora - historico_ips[chave_limite]) < 0.2:
-                        
-                        # Só imprimimos o aviso de DoS se NÃO for o PULL_STATE (evita spam no terminal após paragens)
-                        if cmd_type != "PULL_STATE":
-                            print(f"[SEGURANÇA] Bloqueio DoS! Ritmo excessivo de '{cmd_type}' do cliente {cliente_id}.")
-                        
-                        v2c.apiPDU.setErrorStatus(respPDU, 'genErr')
-                        novos_varBinds.append((oid, val))
+                    # 2. Rate Limiting Inteligente (Prevenção de Ataques DoS)
+                    chave_limite = f"{cliente_id}_{tipo_comando}"
+                    if chave_limite in historico_pedidos_ips and (tempo_atual - historico_pedidos_ips[chave_limite]) < 0.2:
+                        if tipo_comando != "PULL_STATE":
+                            print(f"[SEGURANÇA] Bloqueio DoS! Ritmo excessivo de '{tipo_comando}' do cliente {cliente_id}.")
+                        v2c.apiPDU.setErrorStatus(resposta_pdu, 'genErr')
+                        novos_binds.append((oid, valor))
                         continue
                         
-                    # Atualiza o tempo do último pedido para este tipo de comando
-                    historico_ips[chave_limite] = agora
+                    historico_pedidos_ips[chave_limite] = tempo_atual
                     
-                    if cmd_type != "PULL_STATE":
-                        print(f"[TÚNEL SEGURO] Comando recebido: {comando_json}")
+                    if tipo_comando != "PULL_STATE":
+                        print(f"[TÚNEL SEGURO] Comando autorizado: {comando_json}")
                     
-                    # 3. Execução das ordens
-                    if cmd_type == "PULL_STATE":
+                    # 3. Execução das Instruções JSON
+                    if tipo_comando == "PULL_STATE":
                         estado_atual = {
                             "tempo": mib.get(f"{OID_BASE}.1.7.0", 0),
                             "algo_id": mib.get(f"{OID_BASE}.1.6.0", 4),
@@ -141,67 +151,62 @@ class SCSetResponder(cmdrsp.SetCommandResponder):
                             "overrides": {tl['roadIndex']: mib.get(f"{OID_BASE}.4.1.2.{tl['roadIndex']}", 0) for tl in cfg['trafficLights']},
                             "links": {f"{l['src']}.{l['dest']}": mib.get(f"{OID_BASE}.5.1.4.{l['src']}.{l['dest']}", 0) for l in cfg.get('links', [])}
                         }
-                        resposta_encriptada = cipher.encrypt(json.dumps(estado_atual).encode('utf-8'))
-                        novos_varBinds.append((oid, v2c.OctetString(resposta_encriptada)))
+                        resposta_encriptada = cifra.encrypt(json.dumps(estado_atual).encode('utf-8'))
+                        novos_binds.append((oid, v2c.OctetString(resposta_encriptada)))
                         
-                    elif cmd_type == "SET_RTG":
-                        via = comando_json["via"]
-                        novo_rtg = comando_json["valor"]
-                        mib[f"{OID_BASE}.3.1.4.{via}"] = novo_rtg
-                        resposta_encriptada = cipher.encrypt(json.dumps({"status": "sucesso"}).encode('utf-8'))
-                        novos_varBinds.append((oid, v2c.OctetString(resposta_encriptada)))
+                    elif tipo_comando == "SET_RTG":
+                        mib[f"{OID_BASE}.3.1.4.{comando_json['via']}"] = comando_json["valor"]
+                        novos_binds.append((oid, v2c.OctetString(cifra.encrypt(b'{"status": "sucesso"}'))))
                         
-                    elif cmd_type == "SET_OVERRIDE":
-                        via = comando_json["via"]
-                        modo = comando_json["modo"]
-                        mib[f"{OID_BASE}.4.1.2.{via}"] = modo
-                        resposta_encriptada = cipher.encrypt(json.dumps({"status": "sucesso"}).encode('utf-8'))
-                        novos_varBinds.append((oid, v2c.OctetString(resposta_encriptada)))
+                    elif tipo_comando == "SET_OVERRIDE":
+                        mib[f"{OID_BASE}.4.1.2.{comando_json['via']}"] = comando_json["modo"]
+                        novos_binds.append((oid, v2c.OctetString(cifra.encrypt(b'{"status": "sucesso"}'))))
                         
-                    elif cmd_type == "SET_ALG":
+                    elif tipo_comando == "SET_ALG":
                         mib[f"{OID_BASE}.1.6.0"] = comando_json["alg_id"]
-                        resposta_encriptada = cipher.encrypt(json.dumps({"status": "sucesso"}).encode('utf-8'))
-                        novos_varBinds.append((oid, v2c.OctetString(resposta_encriptada)))
+                        novos_binds.append((oid, v2c.OctetString(cifra.encrypt(b'{"status": "sucesso"}'))))
 
                 except InvalidToken:
                     print("[SEGURANÇA] Intrusão detetada! Falha na desencriptação do payload.")
-                    v2c.apiPDU.setErrorStatus(respPDU, 'authorizationError')
-                    novos_varBinds.append((oid, val))
-                except Exception as e:
-                    print(f"[TÚNEL SEGURO] Erro ao processar comando: {e}")
-                    v2c.apiPDU.setErrorStatus(respPDU, 'genErr')
-                    novos_varBinds.append((oid, val))
+                    v2c.apiPDU.setErrorStatus(resposta_pdu, 'authorizationError')
+                    novos_binds.append((oid, valor))
+                except Exception as erro:
+                    print(f"[TÚNEL SEGURO] Erro interno ao processar comando: {erro}")
+                    v2c.apiPDU.setErrorStatus(resposta_pdu, 'genErr')
+                    novos_binds.append((oid, valor))
             
-            # Bloquear SETs diretos aos OIDs antigos para forçar o uso do túnel
+            # Bloquear acessos plain-text à MIB (A Obrigatoriedade do Túnel)
             elif oid_str in mib:
-                print(f"[SEGURANÇA] Tentativa de escrita não autorizada ao OID direto: {oid_str}")
-                v2c.apiPDU.setErrorStatus(respPDU, 'noAccess')
-                novos_varBinds.append((oid, val))
+                print(f"[SEGURANÇA] Tentativa de escrita bloqueada ao OID nativo: {oid_str}")
+                v2c.apiPDU.setErrorStatus(resposta_pdu, 'noAccess')
+                novos_binds.append((oid, valor))
             else:
-                novos_varBinds.append((oid, v2c.NoSuchInstance()))
+                novos_binds.append((oid, v2c.NoSuchInstance()))
 
-        v2c.apiPDU.setVarBinds(respPDU, novos_varBinds)
-        snmpEngine.msgAndPduDsp.returnResponsePdu(snmpEngine, messageProcessingModel, securityModel, securityName, securityLevel, contextEngineId, contextName, pduVersion, respPDU, maxSizeResponseScopedPDU, stateReference, {})
+        v2c.apiPDU.setVarBinds(resposta_pdu, novos_binds)
+        snmpEngine.msgAndPduDsp.returnResponsePdu(snmpEngine, messageProcessingModel, securityModel, securityName, securityLevel, contextEngineId, contextName, pduVersion, resposta_pdu, maxSizeResponseScopedPDU, stateReference, {})
 
-class SCGetResponder(cmdrsp.GetCommandResponder):
+class ResponderGetBloqueado(cmdrsp.GetCommandResponder):
+    """Mata proativamente qualquer pedido GET em plain-text para proteger a topologia da rede."""
     def processPdu(self, snmpEngine, messageProcessingModel, securityModel, securityName, securityLevel, contextEngineId, contextName, pduVersion, PDU, maxSizeResponseScopedPDU, stateReference):
-        # A morte do GET: Bloqueamos proativamente qualquer tentativa de leitura em plain-text.
-        respPDU = v2c.apiPDU.getResponse(PDU)
-        varBinds = v2c.apiPDU.getVarBinds(PDU)
-        novos_varBinds = []
+        resposta_pdu = v2c.apiPDU.getResponse(PDU)
+        binds = v2c.apiPDU.getVarBinds(PDU)
+        novos_binds = []
         
-        for oid, val in varBinds:
-            print(f"[SEGURANÇA] Bloqueado GET em texto limpo ao OID: {oid}. Apenas PULL_STATE via Túnel é permitido.")
-            v2c.apiPDU.setErrorStatus(respPDU, 'noAccess')
-            novos_varBinds.append((oid, val))
+        for oid, valor in binds:
+            print(f"[SEGURANÇA] Bloqueada tentativa de escuta (GET) ao OID: {oid}. Requer PULL_STATE cifrado.")
+            v2c.apiPDU.setErrorStatus(resposta_pdu, 'noAccess')
+            novos_binds.append((oid, valor))
             
-        v2c.apiPDU.setVarBinds(respPDU, novos_varBinds)
-        snmpEngine.msgAndPduDsp.returnResponsePdu(snmpEngine, messageProcessingModel, securityModel, securityName, securityLevel, contextEngineId, contextName, pduVersion, respPDU, maxSizeResponseScopedPDU, stateReference, {})
+        v2c.apiPDU.setVarBinds(resposta_pdu, novos_binds)
+        snmpEngine.msgAndPduDsp.returnResponsePdu(snmpEngine, messageProcessingModel, securityModel, securityName, securityLevel, contextEngineId, contextName, pduVersion, resposta_pdu, maxSizeResponseScopedPDU, stateReference, {})
+
 
 # =====================================================================
-# 4. LÓGICA DE SIMULAÇÃO E TRAPS
+# 4. LÓGICA DE SIMULAÇÃO E ESTATÍSTICAS
 # =====================================================================
-async def disparar_trap(via, carros):
+async def disparar_alerta_trap(id_via, numero_carros):
+    """Envia uma Trap SNMP assíncrona notificando o Dashboard de um congestionamento severo."""
     try:
         await sendNotification(
             hlapiSnmpEngine(),
@@ -210,193 +215,188 @@ async def disparar_trap(via, carros):
             ContextData(),
             'trap',
             NotificationType(ObjectIdentity('1.3.6.1.4.1.2026.1.0.1')).addVarBinds(
-                ('1.3.6.1.4.1.2026.1.1.1', Integer32(via)),
-                ('1.3.6.1.4.1.2026.1.1.2', Integer32(carros))
+                ('1.3.6.1.4.1.2026.1.1.1', Integer32(id_via)),
+                ('1.3.6.1.4.1.2026.1.1.2', Integer32(numero_carros))
             )
         )
-        print(f"[TRAP ENVIADA] Alerta de Congestionamento na Via {via}!")
+        print(f"[TRAP ENVIADA] Alerta Crítico: Congestionamento na Via {id_via}!")
     except Exception:
         pass
 
-def limpar_metricas_mib(mib_dict, config):
-    mib_dict[f"{OID_BASE}.1.7.0"] = 0
-    for r in config['roads']:
-        mib_dict[f"{OID_BASE}.3.1.6.{r['id']}"] = r.get('initialCount', 0)
-    for link in config.get('links', []):
-        mib_dict[f"{OID_BASE}.5.1.4.{link['src']}.{link['dest']}"] = 0
+def resetar_metricas_mib(dicionario_mib, configuracao):
+    dicionario_mib[f"{OID_BASE}.1.7.0"] = 0
+    for rua in configuracao['roads']:
+        dicionario_mib[f"{OID_BASE}.3.1.6.{rua['id']}"] = rua.get('initialCount', 0)
+    for ligacao in configuracao.get('links', []):
+        dicionario_mib[f"{OID_BASE}.5.1.4.{ligacao['src']}.{ligacao['dest']}"] = 0
 
-async def main():
-    snmp_engine = engine.SnmpEngine()
-    config_snmp = config
-    config_snmp.addTransport(snmp_engine, udp.domainName, udp.UdpTransport().openServerMode(('127.0.0.1', 16161)))
-    config_snmp.addV1System(snmp_engine, 'my-area', 'public')
-    config_snmp.addVacmUser(snmp_engine, 2, 'my-area', 'noAuthNoPriv', (1, 3, 6), (1, 3, 6))
-    snmp_context = context.SnmpContext(snmp_engine)
+async def iniciar_sistema_central():
+    """Configura o motor SNMP, instancia a simulação física e executa o ciclo de vida principal."""
+    motor_snmp = engine.SnmpEngine()
+    configuracao_snmp = config
+    configuracao_snmp.addTransport(motor_snmp, udp.domainName, udp.UdpTransport().openServerMode(('127.0.0.1', 16161)))
+    configuracao_snmp.addV1System(motor_snmp, 'my-area', 'public')
+    configuracao_snmp.addVacmUser(motor_snmp, 2, 'my-area', 'noAuthNoPriv', (1, 3, 6), (1, 3, 6))
+    contexto_snmp = context.SnmpContext(motor_snmp)
     
-    SCSetResponder(snmp_engine, snmp_context)
-    SCGetResponder(snmp_engine, snmp_context)
+    ResponderSetSeguro(motor_snmp, contexto_snmp)
+    ResponderGetBloqueado(motor_snmp, contexto_snmp)
 
-    ALGO_MAP = {1: "ROUND_ROBIN", 2: "HEURISTICA", 3: "RL", 4: "BACKPRESSURE"}
+    MAPA_ALGORITMOS = {1: "ROUND_ROBIN", 2: "HEURISTICA", 3: "RL", 4: "BACKPRESSURE"}
     
-    def criar_sd(algoritmo_nome):
-        if algoritmo_nome == "ROUND_ROBIN": return SistemaDecisaoRoundRobin(mib, cfg)
-        elif algoritmo_nome == "HEURISTICA": return SistemaDecisaoOcupacao(mib, cfg)
-        elif algoritmo_nome == "RL": return SistemaDecisaoRL(mib, cfg)
+    def instanciar_sistema_decisao(nome_algoritmo):
+        if nome_algoritmo == "ROUND_ROBIN": return SistemaDecisaoRoundRobin(mib, cfg)
+        elif nome_algoritmo == "HEURISTICA": return SistemaDecisaoOcupacao(mib, cfg)
+        elif nome_algoritmo == "RL": return SistemaDecisaoRL(mib, cfg)
         else: return SistemaDecisaoBackpressure(mib, cfg)
 
-    algo_id = mib.get(f"{OID_BASE}.1.6.0", 4)
-    ALGORITMO = ALGO_MAP.get(algo_id, "BACKPRESSURE")
-    sd = criar_sd(ALGORITMO)
+    id_algoritmo_atual = mib.get(f"{OID_BASE}.1.6.0", 4)
+    algoritmo_ativo = MAPA_ALGORITMOS.get(id_algoritmo_atual, "BACKPRESSURE")
+    sistema_decisao = instanciar_sistema_decisao(algoritmo_ativo)
     
-    if ALGORITMO == "RL":
-        if sd.precisa_treino:
-            ssfr_treino = SistemaSimulacao(mib, cfg)
-            print("\n[TREINO RL] Iniciando treino acelerado (1000 ciclos virtuais)...")
-            sd.epsilon = 0.5 
+    # Fase de Treino do Reinforcement Learning
+    if algoritmo_ativo == "RL":
+        if sistema_decisao.precisa_treino:
+            simulador_treino = SistemaSimulacao(mib, cfg)
+            print("\n[TREINO RL] A iniciar simulação acelerada (10.000 ciclos virtuais)...")
+            sistema_decisao.epsilon = 0.5 
             
-            for i in range(10000):
-                ssfr_treino.run_step(5) 
-                await sd.update(fast_forward_step=5)
-                if i % 250 == 0: print(f"[TREINO RL] Progresso: {i}/1000 ciclos | Estados na memória: {len(sd.q_table)}")
+            for ciclo in range(10000):
+                simulador_treino.executar_passo(5) 
+                await sistema_decisao.update(fast_forward_step=5)
+                if ciclo % 250 == 0: 
+                    print(f"[TREINO RL] Progresso: {ciclo}/10000 ciclos | Memória: {len(sistema_decisao.q_table)} estados")
 
-            print("[TREINO RL] Treino concluído! A gravar conhecimento...")
-            sd.guardar_cerebro()
-            sd.epsilon = 0.05 
+            print("[TREINO RL] Treino concluído! A persistir conhecimento no disco...")
+            sistema_decisao.guardar_cerebro()
+            sistema_decisao.epsilon = 0.05 
         else:
-            print("\n[TREINO RL] O cérebro para este mapa já existe. A saltar o treino e arrancar a simulação!")
+            print("\n[TREINO RL] Cérebro detetado em disco. A saltar fase de treino!")
     
-    limpar_metricas_mib(mib, cfg)
-    ssfr = SistemaSimulacao(mib, cfg)
+    resetar_metricas_mib(mib, cfg)
+    motor_fisica = SistemaSimulacao(mib, cfg)
     
-    # -------------------------------------------------------------------------
-    # CRIAÇÃO DO CSV INICIAL
-    # -------------------------------------------------------------------------
-    nome_ficheiro_csv = f"historico_simulacao_{ALGORITMO}.csv"
+    # Prepara Ficheiro de Logs CSV
+    nome_ficheiro_csv = f"historico_simulacao_{algoritmo_ativo}.csv"
     try:
-        with open(nome_ficheiro_csv, mode='w', newline='') as file:
-            writer = csv.writer(file, delimiter=';') 
-            writer.writerow(["Tempo (s)", "Algoritmo", "Total Escoados", "Fila Maxima", "Ocupacao Media"])
+        with open(nome_ficheiro_csv, mode='w', newline='') as ficheiro:
+            escritor = csv.writer(ficheiro, delimiter=';') 
+            escritor.writerow(["Tempo (s)", "Algoritmo", "Total Escoados", "Fila Maxima", "Ocupacao Media"])
     except PermissionError:
-        print(f"\n[ERRO CRÍTICO] O ficheiro {nome_ficheiro_csv} está aberto no Excel!")
-        print("Fecha o Excel e corre o script novamente.")
-        return
+        print(f"\n[ERRO CRÍTICO] O ficheiro {nome_ficheiro_csv} está aberto noutro programa (ex: Excel)!")
+        sys.exit(1)
 
-    async def simulation_loop():
-        nonlocal ALGORITMO, sd, ssfr, nome_ficheiro_csv
+    async def ciclo_simulacao():
+        nonlocal algoritmo_ativo, sistema_decisao, motor_fisica, nome_ficheiro_csv
         
-        sim_step = cfg['geral']['simStepDuration']
-        iteration = 0
-        tempo_inicio = time.time()
-        tempo_ultimo_trap = {} 
-        algo_anterior = ALGORITMO
+        duracao_passo = cfg['geral']['simStepDuration']
+        iteracao = 0
+        marca_tempo_inicio = time.time()
+        dicionario_traps_enviadas = {} 
+        algoritmo_anterior = algoritmo_ativo
 
-        print(f"\n=== SC EM EXECUÇÃO (Porta 16161) | Algoritmo: {ALGORITMO} ===")
-        print(f"A gravar dados em: {nome_ficheiro_csv}")
+        print(f"\n=== SISTEMA CENTRAL A CORRER (UDP 16161) | Algoritmo: {algoritmo_ativo} ===")
+        print(f"A exportar logs analíticos para: {nome_ficheiro_csv}")
         
         while True:
-            # --- VERIFICAR MUDANÇA DE ALGORITMO ---
-            algo_id_atual = mib.get(f"{OID_BASE}.1.6.0", 4)
-            ALGORITMO = ALGO_MAP.get(algo_id_atual, "BACKPRESSURE")
+            # --- 1. VERIFICAR MUDANÇAS DINÂMICAS DE ALGORITMO ---
+            id_novo_algoritmo = mib.get(f"{OID_BASE}.1.6.0", 4)
+            algoritmo_ativo = MAPA_ALGORITMOS.get(id_novo_algoritmo, "BACKPRESSURE")
             
-            if ALGORITMO != algo_anterior:
-                print(f"\n[ALTERAÇÃO] Mudando algoritmo de {algo_anterior} para {ALGORITMO}...")
-                sd = criar_sd(ALGORITMO)
+            if algoritmo_ativo != algoritmo_anterior:
+                print(f"\n[HOT-SWAP] Alteração recebida: Mudando de {algoritmo_anterior} para {algoritmo_ativo}...")
+                sistema_decisao = instanciar_sistema_decisao(algoritmo_ativo)
                 
-                if ALGORITMO == "RL":
-                    ssfr_treino = SistemaSimulacao(mib, cfg)
-                    print("[TREINO RL] Iniciando treino acelerado (1000 ciclos virtuais)...")
-                    sd.epsilon = 0.5 
-                    for i in range(10000):
-                        ssfr_treino.run_step(5) 
-                        await sd.update(fast_forward_step=5)
-                        if i % 250 == 0: print(f"[TREINO RL] Progresso: {i}/1000 ciclos | Estados na memória: {len(sd.q_table)}")
-                    sd.guardar_cerebro()
-                    sd.epsilon = 0.05 
-                    print("[TREINO RL] Treino concluído!")
+                if algoritmo_ativo == "RL":
+                    simulador_treino = SistemaSimulacao(mib, cfg)
+                    print("[TREINO RL] A efetuar treino acelerado para adaptação...")
+                    sistema_decisao.epsilon = 0.5 
+                    for c in range(10000):
+                        simulador_treino.executar_passo(5) 
+                        await sistema_decisao.update(fast_forward_step=5)
+                    sistema_decisao.guardar_cerebro()
+                    sistema_decisao.epsilon = 0.05 
+                    print("[TREINO RL] Adaptação concluída.")
                 
-                limpar_metricas_mib(mib, cfg)
-                ssfr = SistemaSimulacao(mib, cfg)
-                tempo_inicio = time.time()
-                tempo_ultimo_trap = {}
-                iteration = 0
+                resetar_metricas_mib(mib, cfg)
+                motor_fisica = SistemaSimulacao(mib, cfg)
+                marca_tempo_inicio = time.time()
+                dicionario_traps_enviadas = {}
+                iteracao = 0
                 
-                nome_ficheiro_csv = f"historico_simulacao_{ALGORITMO}.csv"
+                nome_ficheiro_csv = f"historico_simulacao_{algoritmo_ativo}.csv"
                 try:
-                    with open(nome_ficheiro_csv, mode='w', newline='') as file:
-                        writer = csv.writer(file, delimiter=';') 
+                    with open(nome_ficheiro_csv, mode='w', newline='') as f:
+                        writer = csv.writer(f, delimiter=';') 
                         writer.writerow(["Tempo (s)", "Algoritmo", "Total Escoados", "Fila Maxima", "Ocupacao Media"])
                 except PermissionError:
-                    print(f"\n[ERRO CSV] Fecha o Excel! Não consigo criar o ficheiro: {nome_ficheiro_csv}")
+                    print(f"\n[ERRO CSV] Falha de escrita. Ficheiro em uso: {nome_ficheiro_csv}")
                 
-                algo_anterior = ALGORITMO
-                print(f"[ALTERAÇÃO] Simulação reiniciada a ZEROS com {ALGORITMO}!")
+                algoritmo_anterior = algoritmo_ativo
+                print(f"[HOT-SWAP] Simulação reiniciada. Contadores a zero com {algoritmo_ativo}!")
             
-            tempo_decorrido = int(time.time() - tempo_inicio)
+            # --- 2. EXECUÇÃO DA FÍSICA E DA DECISÃO ---
+            tempo_decorrido = int(time.time() - marca_tempo_inicio)
             mib[f"{OID_BASE}.1.7.0"] = tempo_decorrido
             
-            ssfr.run_step(sim_step)
-            await sd.update(current_step=sim_step)
+            motor_fisica.executar_passo(duracao_passo)
+            await sistema_decisao.update(current_step=duracao_passo)
             
-            # --- PROCESSAR OVERRIDES MANUAIS ---
-            for tl in cfg['trafficLights']:
-                rid = tl['roadIndex']
-                modo_manual = mib.get(f"{OID_BASE}.4.1.2.{rid}", 0)
+            # Forçar overrides manuais
+            for semaforo in cfg['trafficLights']:
+                id_rua = semaforo['roadIndex']
+                modo_imposto = mib.get(f"{OID_BASE}.4.1.2.{id_rua}", 0)
+                if modo_imposto == 1:
+                    mib[f"{OID_BASE}.4.1.3.{id_rua}"] = 2 
+                    mib[f"{OID_BASE}.4.1.4.{id_rua}"] = 99 
+                elif modo_imposto == 2:
+                    mib[f"{OID_BASE}.4.1.3.{id_rua}"] = 1 
+                    mib[f"{OID_BASE}.4.1.4.{id_rua}"] = 99
+            
+            # --- 3. CÁLCULO DINÂMICO DE ESTATÍSTICAS E TRAPS ---
+            vias_saida = [str(rua['id']) for rua in cfg['roads'] if rua.get('type') == 2]
+            vias_internas = [rua['id'] for rua in cfg['roads'] if str(rua['id']) not in vias_saida]
+            
+            # BUG FIX: Conta todos os links que apontam para qualquer via do tipo 2
+            total_escoados = sum(mib.get(f"{OID_BASE}.5.1.4.{ligacao['src']}.{ligacao['dest']}", 0) 
+                                 for ligacao in cfg.get('links', []) 
+                                 if str(ligacao['dest']) in vias_saida)
+            
+            maxima_fila = 0
+            for id_via in vias_internas:
+                fila_presente = mib.get(f"{OID_BASE}.3.1.6.{id_via}", 0)
                 
-                if modo_manual == 1:
-                    mib[f"{OID_BASE}.4.1.3.{rid}"] = 2 
-                    mib[f"{OID_BASE}.4.1.4.{rid}"] = 99 
-                elif modo_manual == 2:
-                    mib[f"{OID_BASE}.4.1.3.{rid}"] = 1 
-                    mib[f"{OID_BASE}.4.1.4.{rid}"] = 99
-            
-            # --- CÁLCULO DE ESTATÍSTICAS E TRAPS ---
-            saidas = ['91', '92', '93', '94']
-            total_escoados = sum(mib.get(f"{OID_BASE}.5.1.4.{link['src']}.{link['dest']}", 0) 
-                                 for link in cfg.get('links', []) 
-                                 if str(link['dest']) in saidas)
-            
-            max_fila = 0
-            vias_saida = [road['id'] for road in cfg['roads'] if road.get('type') == 2]
-            for r in cfg['roads']:
-                if r['id'] not in vias_saida:
-                    fila_atual = mib.get(f"{OID_BASE}.3.1.6.{r['id']}", 0)
-                    
-                    if fila_atual >= 20:
-                        agora = time.time()
-                        if agora - tempo_ultimo_trap.get(r['id'], 0) > 10.0:
-                            asyncio.create_task(disparar_trap(r['id'], fila_atual))
-                            tempo_ultimo_trap[r['id']] = agora
+                if fila_presente >= 20:
+                    agora_trap = time.time()
+                    if agora_trap - dicionario_traps_enviadas.get(id_via, 0) > 10.0:
+                        asyncio.create_task(disparar_alerta_trap(id_via, fila_presente))
+                        dicionario_traps_enviadas[id_via] = agora_trap
 
-                    if fila_atual > max_fila:
-                        max_fila = fila_atual
+                if fila_presente > maxima_fila:
+                    maxima_fila = fila_presente
 
-            # -------------------------------------------------------------------------
-            # CÁLCULO SEGURO E ESCRITA DO CSV (COM PROTEÇÃO)
-            # -------------------------------------------------------------------------
+            # Exportação de Logs para o Dashboard
             try:
-                # Usa a mesma lógica do max_fila para evitar erros caso falte o "type" no json
-                vias_internas = [r['id'] for r in cfg['roads'] if r['id'] not in vias_saida]
                 ocupacao_media = 0
                 if len(vias_internas) > 0:
                     ocupacao_media = sum(mib.get(f"{OID_BASE}.3.1.6.{v}", 0) for v in vias_internas) / len(vias_internas)
 
-                with open(nome_ficheiro_csv, mode='a', newline='') as file:
-                    writer = csv.writer(file, delimiter=';')
-                    writer.writerow([tempo_decorrido, ALGORITMO, total_escoados, max_fila, round(ocupacao_media, 2)])
-            except Exception as e:
-                print(f"[ERRO CSV] Não consegui gravar os dados! (Tens o Excel aberto?): {e}")
+                with open(nome_ficheiro_csv, mode='a', newline='') as ficheiro_log:
+                    escritor_csv = csv.writer(ficheiro_log, delimiter=';')
+                    escritor_csv.writerow([tempo_decorrido, algoritmo_ativo, total_escoados, maxima_fila, round(ocupacao_media, 2)])
+            except Exception:
+                pass 
 
-            if iteration % 4 == 0:
-                vias = " | ".join([f"V{r['id']}:{mib[f'{OID_BASE}.3.1.6.{r['id']}']}v" for r in cfg['roads'][:4]])
-                print(f"[MONITOR] {vias} | Escoados: {total_escoados} | Alg. {ALGORITMO}")
+            if iteracao % 4 == 0:
+                print(f"[MONITOR {algoritmo_ativo}] T={tempo_decorrido}s | Escoados: {total_escoados} v | Fila Máx: {maxima_fila} v")
             
-            iteration += 1
-            await asyncio.sleep(sim_step)
+            iteracao += 1
+            await asyncio.sleep(duracao_passo)
 
-    await simulation_loop()
+    await ciclo_simulacao()
 
 if __name__ == "__main__":
     try:
-        asyncio.run(main())
+        asyncio.run(iniciar_sistema_central())
     except KeyboardInterrupt:
-        print("\n[SC] Encerrado pelo utilizador!")
+        print("\n[SC] Sistema Central desligado em segurança pelo administrador.")

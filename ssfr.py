@@ -1,130 +1,160 @@
+# ==============================================================================
+# Ficheiro: ssfr.py
+# Autores: Eduarda Pereira, Gonçalo Ferreira, Gonçalo Magalhães
+# Descrição: Sistema de Simulação de Fluxo de Rede (SSFR). Este módulo atua
+#            como o "motor físico" do simulador, sendo responsável por injetar, 
+#            movimentar e escoar os veículos através das vias com base no estado 
+#            dos semáforos, Taxa de Geração (RTG) e capacidade das ruas.
+# ==============================================================================
+
 import asyncio
 import random
 
 class SistemaSimulacao:
-    def __init__(self, shared_mib, config):
-        self.mib = shared_mib
-        self.cfg = config
-        self.base = "1.3.6.1.3.2026.1"
-        # Acumulador para a entrada de carros (RTG) nas Vias
-        self.in_accumulators = {r['id']: 0.0 for r in config['roads']}
-        # Acumulador para o escoamento dos Semáforos (Origens)
-        self.out_accumulators = {r['id']: 0.0 for r in config['roads']}
+    """
+    Motor principal de simulação de tráfego. 
+    Lê e atualiza a Base de Informação de Gestão (MIB) em tempo real, 
+    simulando a física do trânsito a cada ciclo de tempo (dt).
+    """
+    
+    def __init__(self, mib_partilhada, configuracao):
+        self.mib_partilhada = mib_partilhada
+        self.configuracao = configuracao
+        self.base_oid = "1.3.6.1.3.2026.1"
+        
+        # Acumuladores fracionais para garantir escoamento e geração fluidos
+        self.acumuladores_entrada = {via['id']: 0.0 for via in configuracao['roads']}
+        self.acumuladores_saida = {via['id']: 0.0 for via in configuracao['roads']}
 
     async def start(self):
+        """
+        Ciclo de vida principal em modo assíncrono.
+        Pode ser usado como uma tarefa independente para manter o motor a correr.
+        """
         print("[SSFR] Motor de Geração e Distribuição iniciado.")
         dt = 0.5 
         while True:
             await asyncio.sleep(dt)
-            self.run_step(dt)
+            self.executar_passo(dt)
 
-    def run_step(self, duration):
-        # ====================================================================
-        # 1. GERAÇÃO DE TRÁFEGO (Entrada de tráfego de fora do mapa)
-        # ====================================================================
-        for road in self.cfg['roads']:
-            rid = road['id']
-            rtg = self.mib.get(f"{self.base}.3.1.4.{rid}", 0)
+    def executar_passo(self, duracao):
+        """
+        Executa um único ciclo (frame) da simulação.
+        O processo está modularizado em geração e movimentação para clareza.
+        """
+        self._gerar_trafego_entrada(duracao)
+        self._processar_movimentos(duracao)
+
+    def _gerar_trafego_entrada(self, duracao):
+        """
+        1. GERAÇÃO DE TRÁFEGO
+        Injeta novos veículos nas vias de entrada (extremidades do mapa) 
+        com base na Taxa Geradora de Tráfego (RTG - veículos por minuto).
+        """
+        for via in self.configuracao['roads']:
+            id_via = via['id']
+            rtg = self.mib_partilhada.get(f"{self.base_oid}.3.1.4.{id_via}", 0)
+            
             if rtg > 0:
-                if self.mib.get(f"{self.base}.4.1.3.{rid}", 2) == 3:
-                    rtg = rtg / 2.0 # Abranda no amarelo
+                cor_semaforo = self.mib_partilhada.get(f"{self.base_oid}.4.1.3.{id_via}", 2)
                 
-                self.in_accumulators[rid] += (rtg / 60.0) * duration
+                # Regra de realismo: Se o semáforo está amarelo (3), o tráfego de entrada abranda
+                if cor_semaforo == 3: 
+                    rtg = rtg / 2.0 
                 
-                if self.in_accumulators[rid] >= 1.0:
-                    added = int(self.in_accumulators[rid])
-                    current = self.mib.get(f"{self.base}.3.1.6.{rid}", 0)
-                    capacity = self.mib.get(f"{self.base}.3.1.5.{rid}", 999)
+                # Converter RTG (v/min) para o tempo decorrido no ciclo
+                self.acumuladores_entrada[id_via] += (rtg / 60.0) * duracao
+                
+                # Quando acumula 1 ou mais veículos inteiros, materializa-os na via
+                if self.acumuladores_entrada[id_via] >= 1.0:
+                    carros_adicionados = int(self.acumuladores_entrada[id_via])
+                    carros_atuais = self.mib_partilhada.get(f"{self.base_oid}.3.1.6.{id_via}", 0)
+                    capacidade_max = self.mib_partilhada.get(f"{self.base_oid}.3.1.5.{id_via}", 999)
                     
-                    if current + added <= capacity:
-                        self.mib[f"{self.base}.3.1.6.{rid}"] = current + added
+                    if carros_atuais + carros_adicionados <= capacidade_max:
+                        self.mib_partilhada[f"{self.base_oid}.3.1.6.{id_via}"] = carros_atuais + carros_adicionados
                     
-                    self.in_accumulators[rid] -= added
+                    # Deduz apenas a parte inteira (mantém a parte decimal para o próximo ciclo)
+                    self.acumuladores_entrada[id_via] -= carros_adicionados
 
-        # ====================================================================
-        # 2. DISTRIBUIÇÃO E ESCOAMENTO NOS CRUZAMENTOS
-        # ====================================================================
-        links_by_src = {}
-        for link in self.cfg.get('links', []):
-            links_by_src.setdefault(link['src'], []).append(link)
+    def _processar_movimentos(self, duracao):
+        """
+        2. DISTRIBUIÇÃO E ESCOAMENTO NOS CRUZAMENTOS
+        Avalia os semáforos, calcula a probabilidade de viragem (FlowRate) e 
+        move os veículos de uma via para a próxima, tratando limites físicos.
+        """
+        # Mapeia as ligações disponíveis por via de origem
+        ligacoes_por_origem = {}
+        for ligacao in self.configuracao.get('links', []):
+            ligacoes_por_origem.setdefault(ligacao['src'], []).append(ligacao)
 
-        # Iteramos sobre todas as vias para garantir que até as vias de Saída são processadas
-        for road in self.cfg['roads']:
-            src = road['id']
-            links = links_by_src.get(src, [])
+        for via in self.configuracao['roads']:
+            id_origem = via['id']
+            ligacoes = ligacoes_por_origem.get(id_origem, [])
+            carros_atuais = self.mib_partilhada.get(f"{self.base_oid}.3.1.6.{id_origem}", 0)
             
-            # ===== CASO 1: Via de Saída da Rede (Sem links de destino) =====
-            if len(links) == 0:
-                v_src = self.mib.get(f"{self.base}.3.1.6.{src}", 0)
-                if v_src > 0:
-                    # Usa o roadMaxCapacity (ou um RTG de saída) como ritmo de escoamento.
-                    # Exemplo: Assume que uma saída escoa 60 carros por minuto por defeito.
-                    exit_flow = self.mib.get(f"{self.base}.3.1.4.{src}", 60) 
+            # --- CASO A: Via de Saída da Rede (Dissipador) ---
+            if len(ligacoes) == 0:
+                if carros_atuais > 0:
+                    # Usa o fluxo nativo da via (por defeito 60 v/min se não definido)
+                    fluxo_saida = self.mib_partilhada.get(f"{self.base_oid}.3.1.4.{id_origem}", 60) 
+                    self.acumuladores_saida[id_origem] += (fluxo_saida / 60.0) * duracao
                     
-                    self.out_accumulators[src] += (exit_flow / 60.0) * duration
-                    
-                    if self.out_accumulators[src] >= 1.0:
-                        cars_to_exit = int(self.out_accumulators[src])
-                        actual_exit = min(v_src, cars_to_exit)
+                    if self.acumuladores_saida[id_origem] >= 1.0:
+                        carros_para_sair = int(self.acumuladores_saida[id_origem])
+                        saida_efetiva = min(carros_atuais, carros_para_sair)
                         
-                        if actual_exit > 0:
-                            # Carros saem diretamente (sem destino, sem backpressure)
-                            self.mib[f"{self.base}.3.1.6.{src}"] -= actual_exit
-                            # Decrementa apenas pelos carros que realmente saíram
-                            self.out_accumulators[src] -= actual_exit
+                        if saida_efetiva > 0:
+                            # Os veículos desaparecem do mapa (escoamento)
+                            self.mib_partilhada[f"{self.base_oid}.3.1.6.{id_origem}"] -= saida_efetiva
+                            self.acumuladores_saida[id_origem] -= saida_efetiva
             
-            # ===== CASO 2: Via Normal com Semáforo e Destinos =====
+            # --- CASO B: Via Normal com Semáforo e Cruzamento ---
             else:
-                color = self.mib.get(f"{self.base}.4.1.3.{src}", 1) 
+                cor_semaforo = self.mib_partilhada.get(f"{self.base_oid}.4.1.3.{id_origem}", 1) 
                 
-                # Só passa se a luz estiver Verde (2) ou Amarela (3)
-                if color in [2, 3]: 
-                    v_src = self.mib.get(f"{self.base}.3.1.6.{src}", 0)
-                    if v_src > 0:
-                        # O ritmo do semáforo é a soma de todos os fluxos possíveis
-                        total_flow = sum(l.get('flowRate', 10) for l in links)
+                # Só permite movimento se o semáforo for Verde (2) ou Amarelo (3)
+                if cor_semaforo in [2, 3]: 
+                    if carros_atuais > 0:
+                        fluxo_total = sum(l.get('flowRate', 10) for l in ligacoes)
+                        self.acumuladores_saida[id_origem] += (fluxo_total / 60.0) * duracao
                         
-                        self.out_accumulators[src] += (total_flow / 60.0) * duration
-                        
-                        if self.out_accumulators[src] >= 1.0:
-                            cars_to_move = int(self.out_accumulators[src])
-                            actual_move = min(v_src, cars_to_move)
+                        if self.acumuladores_saida[id_origem] >= 1.0:
+                            carros_para_mover = int(self.acumuladores_saida[id_origem])
+                            movimento_efetivo = min(carros_atuais, carros_para_mover)
 
-                            if actual_move > 0:
-                                # 1. Retira os carros da via de origem (vão passar o semáforo)
-                                self.mib[f"{self.base}.3.1.6.{src}"] -= actual_move
+                            if movimento_efetivo > 0:
+                                # 1. Retira preventivamente os veículos da via de origem
+                                self.mib_partilhada[f"{self.base_oid}.3.1.6.{id_origem}"] -= movimento_efetivo
+                                carros_movidos_sucesso = 0
                                 
-                                # 2. Distribui cada carro (Roleta) e verifica Backpressure
-                                # Conta quantos realmente conseguem passar (sem spillback)
-                                cars_actually_moved = 0
-                                
-                                for _ in range(actual_move):
-                                    rand = random.uniform(0, total_flow)
+                                # 2. Processa a lógica de encaminhamento para cada veículo individualmente
+                                for _ in range(movimento_efetivo):
+                                    # Lógica de "Roleta" para escolher a direção baseada no FlowRate
+                                    rand = random.uniform(0, fluxo_total)
                                     acumulado = 0
-                                    for link in links:
-                                        acumulado += link.get('flowRate', 10)
+                                    
+                                    for ligacao in ligacoes:
+                                        acumulado += ligacao.get('flowRate', 10)
                                         if rand <= acumulado:
-                                            dest = link['dest']
-                                            
-                                            v_dest = self.mib.get(f"{self.base}.3.1.6.{dest}", 0)
-                                            cap_dest = self.mib.get(f"{self.base}.3.1.5.{dest}", 999)
+                                            id_destino = ligacao['dest']
+                                            carros_destino = self.mib_partilhada.get(f"{self.base_oid}.3.1.6.{id_destino}", 0)
+                                            cap_destino = self.mib_partilhada.get(f"{self.base_oid}.3.1.5.{id_destino}", 999)
 
-                                            if v_dest < cap_dest:
-                                                # Cabe na rua! Segue viagem.
-                                                self.mib[f"{self.base}.3.1.6.{dest}"] = v_dest + 1
+                                            if carros_destino < cap_destino:
+                                                # Há espaço físico: O veículo transita para a nova via
+                                                self.mib_partilhada[f"{self.base_oid}.3.1.6.{id_destino}"] = carros_destino + 1
                                                 
-                                                # Atualiza estatística de viragem
-                                                link_oid = f"{self.base}.5.1.4.{src}.{dest}"
-                                                self.mib[link_oid] = self.mib.get(link_oid, 0) + 1
-                                                
-                                                # Marca como movido com sucesso
-                                                cars_actually_moved += 1
+                                                # Atualiza métricas de trânsito efetuado no cruzamento (Link)
+                                                oid_ligacao = f"{self.base_oid}.5.1.4.{id_origem}.{id_destino}"
+                                                self.mib_partilhada[oid_ligacao] = self.mib_partilhada.get(oid_ligacao, 0) + 1
+                                                carros_movidos_sucesso += 1
                                             else:
-                                                # Rua cheia! Spillback. O carro bate no trânsito e é devolvido.
-                                                self.mib[f"{self.base}.3.1.6.{src}"] += 1
+                                                # BACKPRESSURE (Spillback): O cruzamento está engarrafado.
+                                                # O veículo "bate no trânsito" e é forçado a recuar para a origem.
+                                                self.mib_partilhada[f"{self.base_oid}.3.1.6.{id_origem}"] += 1
                                             
-                                            break # Carro tratado
+                                            break # Veículo tratado, avança para o próximo
                                 
-                                # Decrementa acumulador APENAS pelos carros que realmente passaram
-                                # Os que deram spillback voltam à origem e "compensam" o acumulador
-                                self.out_accumulators[src] -= cars_actually_moved
+                                # 3. Desconta do acumulador APENAS os veículos que realmente atravessaram
+                                self.acumuladores_saida[id_origem] -= carros_movidos_sucesso
