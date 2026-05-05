@@ -164,7 +164,7 @@ def gerar_topologia_dinamica(cfg_atual, resolucao_base=(900, 700), margem=120):
     linhas = math.ceil(num_cruzamentos / colunas)
     
     pos_normalizada_cruzamentos = {} 
-    for idx, cruz em enumerate(cruzamentos):
+    for idx, cruz in enumerate(cruzamentos):
         linha = idx // colunas
         coluna = idx % colunas
         x = -0.6 + (coluna / max(1, colunas - 1)) * 1.2 if colunas > 1 else 0
