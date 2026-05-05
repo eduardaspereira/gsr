@@ -5,9 +5,6 @@
 #            Cada cruzamento age como um Agente autónomo que aprende a melhor 
 #            duração de verde (Ação) para um dado volume de trânsito (Estado),
 #            maximizando o escoamento local (Recompensa).
-#
-# Equação de Atualização (Bellman):
-# $$Q(s, a) \leftarrow Q(s, a) + \alpha \left[ R + \gamma \max_{a'} Q(s', a') - Q(s, a) \right]$$
 # ==============================================================================
 
 import asyncio
