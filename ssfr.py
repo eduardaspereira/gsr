@@ -26,7 +26,7 @@ class SistemaSimulacao:
             rid = road['id']
             rtg = self.mib.get(f"{self.base}.3.1.4.{rid}", 0)
             if rtg > 0:
-                if self.mib.get(f"{self.base}.4.1.3.{rid}", 2) == 3:
+                if self.mib.get(f"{self.base}.4.1.3.{rid}", 2) == 2:
                     rtg = rtg / 2.0 # Abranda no amarelo
                 
                 self.in_accumulators[rid] += (rtg / 60.0) * duration
