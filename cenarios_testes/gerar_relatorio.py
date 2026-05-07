@@ -1,3 +1,12 @@
+# ==============================================================================
+# Ficheiro: cenarios_testes/gerar_relatorio.py
+# Autores: Eduarda Pereira, Gonçalo Ferreira, Gonçalo Magalhães
+# Descrição: Gerador de Relatórios e Gráficos de Desempenho. Este script 
+#            automatiza a leitura de dados de simulação (Excel) para diferentes 
+#            cenários de tráfego, produzindo visualizações comparativas entre 
+#            os algoritmos para análise de métricas críticas.
+# ==============================================================================
+
 import pandas as pd
 import matplotlib.pyplot as plt
 import os
