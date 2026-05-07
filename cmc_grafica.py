@@ -50,7 +50,7 @@ builtins._algo_id_snmp = 4
 
 # Carregamento inicial da configuração base
 try:
-    with open('config2.json', 'r') as f:
+    with open('Mapas/config2.json', 'r') as f:
         cfg = json.load(f)
 except Exception:
     cfg = {'roads': [], 'trafficLights': []} 
@@ -211,8 +211,8 @@ def gerar_topologia_dinamica(cfg_atual, resolucao_base=(900, 700), margem=120):
                     x_cr, y_cr = pos_normalizada_cruzamentos[dst_cr]
                     if "Norte" in nome_via: x_f, y_f = x_cr, y_cr - 0.25
                     elif "Sul" in nome_via: x_f, y_f = x_cr, y_cr + 0.25
-                    elif "Oeste" in nome_via: x_f, y_f = x_cr - 0.25, y_cr
-                    elif "Este" in nome_via: x_f, y_f = x_cr + 0.25, y_cr
+                    elif "Oeste" in nome_via: x_f, y_f = x_cr - 0.35, y_cr
+                    elif "Este" in nome_via: x_f, y_f = x_cr + 0.35, y_cr
                     else: x_f, y_f = x_cr - 0.3, y_cr
                     pos_normalizada_nos[no_origem] = (x_f, y_f)
         elif tipo_via == 2:
@@ -223,8 +223,8 @@ def gerar_topologia_dinamica(cfg_atual, resolucao_base=(900, 700), margem=120):
                     x_cr, y_cr = pos_normalizada_cruzamentos[src_cr]
                     if "Norte" in nome_via: x_f, y_f = x_cr, y_cr - 0.25
                     elif "Sul" in nome_via: x_f, y_f = x_cr, y_cr + 0.25
-                    elif "Oeste" in nome_via: x_f, y_f = x_cr - 0.25, y_cr
-                    elif "Este" in nome_via: x_f, y_f = x_cr + 0.25, y_cr
+                    elif "Oeste" in nome_via: x_f, y_f = x_cr - 0.50, y_cr
+                    elif "Este" in nome_via: x_f, y_f = x_cr + 0.50, y_cr
                     else: x_f, y_f = x_cr + 0.3, y_cr
                     pos_normalizada_nos[no_destino] = (x_f, y_f)
     
@@ -446,8 +446,8 @@ def iniciar_dashboard():
     algo_anterior = 4 
     
     opcoes_algos = [(1, "ROUND_ROBIN"), (2, "HEURISTICA"), (3, "RL"), (4, "BACKPRESSURE")]
-    opcoes_mapas = [(0, "Mapa 1 (config)"), (1, "Mapa 2 (config2)"), (2, "Mapa 3 (config3)")]
-    ficheiros_mapas = ["config.json", "config2.json", "config3.json"]
+    opcoes_mapas = [(0, "Mapa 1 (config)"), (1, "Mapa 2 (config2)"), (2, "Mapa 3 (config3)"), (3, "Mapa 4 (config4)")]
+    ficheiros_mapas = ["Mapas/config.json", "Mapas/config2.json", "Mapas/config3.json", "Mapas/config4.json"]
 
     via_selecionada = None
     texto_rtg_via = ""
@@ -607,57 +607,7 @@ def iniciar_dashboard():
         fonte_grande = pygame.font.SysFont("Courier New", escalar_valor(20, escala_global), bold=True)
         fonte_alerta = pygame.font.SysFont("Arial", escalar_valor(22, escala_global), bold=True)
 
-        tempo_sc = getattr(builtins, '_tempo_execucao_snmp', 0)
-        str_relogio = f"{tempo_sc // 3600:02d}:{(tempo_sc % 3600) // 60:02d}:{tempo_sc % 60:02d}"
-
-        margem_esq = escalar_valor(20, escala_global) 
-        posicao_y = escalar_valor(15, escala_global)
-        
-        # Cabeçalho de Métricas
-        superficie_titulo = fonte_grande.render("METRICAS DE REDE - ", True, (255, 255, 255))
-        superficie_tempo = fonte_grande.render(str_relogio, True, (100, 255, 100))
-        ecra.blit(superficie_titulo, (margem_esq, posicao_y))
-        ecra.blit(superficie_tempo, (margem_esq + superficie_titulo.get_width(), posicao_y))
-        
-        posicao_y += escalar_valor(30, escala_global)
-        str_estatisticas = f"Escoados: {total_escoados} v | Vazão: {vazao_atual:.1f} v/min | Ocupação Média: {ocupacao_media:.1f} v/via | Pior Fila: {fila_max}v (V{via_pior})"
-        ecra.blit(fonte_pequena.render(str_estatisticas, True, (200, 200, 200)), (margem_esq, posicao_y))
-        
-        posicao_y += escalar_valor(30, escala_global)
-        
-        # Menus Suspensos
-        if 'menu_algoritmos' not in locals():
-            menu_algoritmos = MenuSuspenso(margem_esq, posicao_y, escalar_valor(180, escala_global), escalar_valor(35, escala_global), opcoes_algos, fonte_pequena)
-        else:
-            menu_algoritmos.x, menu_algoritmos.y = margem_esq, posicao_y
-            menu_algoritmos.largura, menu_algoritmos.altura = escalar_valor(180, escala_global), escalar_valor(35, escala_global)
-            menu_algoritmos.fonte = fonte_pequena
-        
-        if 1 <= algo_atual_snmp <= 4 and not menu_algoritmos.aberto:
-            menu_algoritmos.indice_selecionado = algo_atual_snmp - 1
-
-        if 'menu_mapas' not in locals():
-            menu_mapas = MenuSuspenso(tamanho_atual[0] - escalar_valor(220, escala_global), escalar_valor(15, escala_global), escalar_valor(200, escala_global), escalar_valor(35, escala_global), opcoes_mapas, fonte_pequena, indice_selecionado=1)
-        else:
-            menu_mapas.x = tamanho_atual[0] - escalar_valor(220, escala_global)
-            menu_mapas.y = escalar_valor(15, escala_global)
-            menu_mapas.largura = escalar_valor(200, escala_global)
-            menu_mapas.altura = escalar_valor(35, escala_global)
-            menu_mapas.fonte = fonte_pequena
-
-        # Renderizar Alerta Trap
-        if alerta_trap["ativo"]:
-            if agora < alerta_trap["expira"]:
-                if int(agora * 2) % 2 == 0: # Efeito de piscar (blink)
-                    x_trap = margem_esq + escalar_valor(200, escala_global) 
-                    w_trap = tamanho_atual[0] - x_trap - margem_esq
-                    pygame.draw.rect(ecra, (200, 40, 40), (x_trap, posicao_y, w_trap, escalar_valor(35, escala_global)), border_radius=4)
-                    texto_alerta = f"ALERTA TRAP: Congestionamento na Via {alerta_trap['via']} ({alerta_trap['carros']} v!)"
-                    superficie_alerta = fonte_alerta.render(texto_alerta, True, (255, 255, 255))
-                    ecra.blit(superficie_alerta, superficie_alerta.get_rect(center=(x_trap + w_trap//2, posicao_y + escalar_valor(17, escala_global))))
-            else: alerta_trap["ativo"] = False
-
-        # --- 4.4 DESENHO DO GRAFO (Nós e Vias) ---
+        # --- 4.4 DESENHO DO GRAFO (Nós e Vias) - DESENHADO ANTES DAS MÉTRICAS ---
         centros_vias.clear() 
         
         for id_via, (p_origem, p_destino) in pos_arestas_base.items():
@@ -710,6 +660,56 @@ def iniciar_dashboard():
                 pygame.draw.circle(ecra, (200, 200, 200), posicao_real, raio, 3)
                 superficie_no = fonte_grande.render(id_no, True, (255, 255, 255))
                 ecra.blit(superficie_no, superficie_no.get_rect(center=posicao_real))
+
+        tempo_sc = getattr(builtins, '_tempo_execucao_snmp', 0)
+        str_relogio = f"{tempo_sc // 3600:02d}:{(tempo_sc % 3600) // 60:02d}:{tempo_sc % 60:02d}"
+
+        margem_esq = escalar_valor(20, escala_global) 
+        posicao_y = escalar_valor(15, escala_global)
+        
+        # Cabeçalho de Métricas
+        superficie_titulo = fonte_grande.render("METRICAS DE REDE - ", True, (255, 255, 255))
+        superficie_tempo = fonte_grande.render(str_relogio, True, (100, 255, 100))
+        ecra.blit(superficie_titulo, (margem_esq, posicao_y))
+        ecra.blit(superficie_tempo, (margem_esq + superficie_titulo.get_width(), posicao_y))
+        
+        posicao_y += escalar_valor(30, escala_global)
+        str_estatisticas = f"Escoados: {total_escoados} v | Vazão: {vazao_atual:.1f} v/min | Ocupação Média: {ocupacao_media:.1f} v/via | Pior Fila: {fila_max}v (V{via_pior})"
+        ecra.blit(fonte_pequena.render(str_estatisticas, True, (200, 200, 200)), (margem_esq, posicao_y))
+        
+        posicao_y += escalar_valor(30, escala_global)
+        
+        # Menus Suspensos
+        if 'menu_algoritmos' not in locals():
+            menu_algoritmos = MenuSuspenso(margem_esq, posicao_y, escalar_valor(180, escala_global), escalar_valor(35, escala_global), opcoes_algos, fonte_pequena)
+        else:
+            menu_algoritmos.x, menu_algoritmos.y = margem_esq, posicao_y
+            menu_algoritmos.largura, menu_algoritmos.altura = escalar_valor(180, escala_global), escalar_valor(35, escala_global)
+            menu_algoritmos.fonte = fonte_pequena
+        
+        if 1 <= algo_atual_snmp <= 4 and not menu_algoritmos.aberto:
+            menu_algoritmos.indice_selecionado = algo_atual_snmp - 1
+
+        if 'menu_mapas' not in locals():
+            menu_mapas = MenuSuspenso(tamanho_atual[0] - escalar_valor(220, escala_global), escalar_valor(15, escala_global), escalar_valor(200, escala_global), escalar_valor(35, escala_global), opcoes_mapas, fonte_pequena, indice_selecionado=1)
+        else:
+            menu_mapas.x = tamanho_atual[0] - escalar_valor(220, escala_global)
+            menu_mapas.y = escalar_valor(15, escala_global)
+            menu_mapas.largura = escalar_valor(200, escala_global)
+            menu_mapas.altura = escalar_valor(35, escala_global)
+            menu_mapas.fonte = fonte_pequena
+
+        # Renderizar Alerta Trap
+        if alerta_trap["ativo"]:
+            if agora < alerta_trap["expira"]:
+                if int(agora * 2) % 2 == 0: # Efeito de piscar (blink)
+                    x_trap = margem_esq + escalar_valor(200, escala_global) 
+                    w_trap = tamanho_atual[0] - x_trap - margem_esq
+                    pygame.draw.rect(ecra, (200, 40, 40), (x_trap, posicao_y, w_trap, escalar_valor(35, escala_global)), border_radius=4)
+                    texto_alerta = f"ALERTA TRAP: Congestionamento na Via {alerta_trap['via']} ({alerta_trap['carros']} v!)"
+                    superficie_alerta = fonte_alerta.render(texto_alerta, True, (255, 255, 255))
+                    ecra.blit(superficie_alerta, superficie_alerta.get_rect(center=(x_trap + w_trap//2, posicao_y + escalar_valor(17, escala_global))))
+            else: alerta_trap["ativo"] = False
 
         # --- 4.5 RENDERIZAÇÃO DA CONSOLA / JANELAS FLUTUANTES ---
         if consola_visivel:

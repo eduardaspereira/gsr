@@ -68,10 +68,10 @@ historico_pedidos_ips = {}
 # 2. CARREGAMENTO DA CONFIGURAÇÃO E INICIALIZAÇÃO DA MIB
 # =====================================================================
 try:
-    with open('config3.json', 'r') as ficheiro_config:
-        cfg = json.load(ficheiro_config)
+    with open('Mapas/config4.json', 'r') as f:
+        cfg = json.load(f)
 except Exception as e:
-    print(f"[ERRO CRÍTICO] Não foi possível ler o 'config3.json': {e}")
+    print(f"[ERRO CRÍTICO] Não foi possível ler o ficheiro json': {e}")
     sys.exit(1)
 
 mib = {}
@@ -149,7 +149,8 @@ class ResponderSetSeguro(cmdrsp.SetCommandResponder):
                             "semaforos": {tl['roadIndex']: mib.get(f"{OID_BASE}.4.1.3.{tl['roadIndex']}", 1) for tl in cfg['trafficLights']},
                             "rtgs": {r['id']: mib.get(f"{OID_BASE}.3.1.4.{r['id']}", 0) for r in cfg['roads'] if r['type'] == 3},
                             "overrides": {tl['roadIndex']: mib.get(f"{OID_BASE}.4.1.2.{tl['roadIndex']}", 0) for tl in cfg['trafficLights']},
-                            "links": {f"{l['src']}.{l['dest']}": mib.get(f"{OID_BASE}.5.1.4.{l['src']}.{l['dest']}", 0) for l in cfg.get('links', [])}
+                            "links": {f"{l['src']}.{l['dest']}": mib.get(f"{OID_BASE}.5.1.4.{l['src']}.{l['dest']}", 0) for l in cfg.get('links', [])},
+                            "cfg": cfg
                         }
                         resposta_encriptada = cifra.encrypt(json.dumps(estado_atual).encode('utf-8'))
                         novos_binds.append((oid, v2c.OctetString(resposta_encriptada)))
@@ -277,7 +278,7 @@ async def iniciar_sistema_central():
     motor_fisica = SistemaSimulacao(mib, cfg)
     
     # Prepara Ficheiro de Logs CSV
-    nome_ficheiro_csv = f"historico_simulacao_{algoritmo_ativo}.csv"
+    nome_ficheiro_csv = f"CSVs/historico_simulacao_{algoritmo_ativo}.csv"
     try:
         with open(nome_ficheiro_csv, mode='w', newline='') as ficheiro:
             escritor = csv.writer(ficheiro, delimiter=';') 
@@ -324,7 +325,7 @@ async def iniciar_sistema_central():
                 dicionario_traps_enviadas = {}
                 iteracao = 0
                 
-                nome_ficheiro_csv = f"historico_simulacao_{algoritmo_ativo}.csv"
+                nome_ficheiro_csv = f"CSVs/historico_simulacao_{algoritmo_ativo}.csv"
                 try:
                     with open(nome_ficheiro_csv, mode='w', newline='') as f:
                         writer = csv.writer(f, delimiter=';') 
@@ -357,7 +358,7 @@ async def iniciar_sistema_central():
             vias_saida = [str(rua['id']) for rua in cfg['roads'] if rua.get('type') == 2]
             vias_internas = [rua['id'] for rua in cfg['roads'] if str(rua['id']) not in vias_saida]
             
-            # BUG FIX: Conta todos os links que apontam para qualquer via do tipo 2
+            # Conta todos os links que apontam para qualquer via do tipo 2
             total_escoados = sum(mib.get(f"{OID_BASE}.5.1.4.{ligacao['src']}.{ligacao['dest']}", 0) 
                                  for ligacao in cfg.get('links', []) 
                                  if str(ligacao['dest']) in vias_saida)
