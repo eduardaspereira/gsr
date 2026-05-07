@@ -88,7 +88,9 @@ def renderizar_modo_comparativo(df_dados, metrica):
     
     if metrica in df_dados.columns:
         # 1. Gráfico Principal (Evolução Temporal Conjunta)
-        df_grafico = df_dados.pivot(index="Tempo (s)", columns="Algoritmo", values=metrica)
+        # Removemos duplicatas de tempo para o mesmo algoritmo, guardando apenas a execução mais recente
+        df_limpo = df_dados.drop_duplicates(subset=["Tempo (s)", "Algoritmo"], keep="last")
+        df_grafico = df_limpo.pivot(index="Tempo (s)", columns="Algoritmo", values=metrica)
         st.line_chart(df_grafico, height=400)
         
         st.markdown("---")

@@ -50,7 +50,7 @@ builtins._algo_id_snmp = 4
 
 # Carregamento inicial da configuração base
 try:
-    with open('Mapas/config2.json', 'r') as f:
+    with open('Mapas/config4.json', 'r') as f:
         cfg = json.load(f)
 except Exception:
     cfg = {'roads': [], 'trafficLights': []} 
@@ -353,6 +353,10 @@ def disparar_tarefa_fundo(corotina):
     """Lança requisições SNMP numa Thread separada para não bloquear os FPS da Interface Gráfica."""
     threading.Thread(target=lambda: asyncio.run(corotina), daemon=True).start()
 
+async def enviar_novo_mapa_snmp(id_mapa):
+    payload = {"comando": "SET_MAPA", "mapa_id": id_mapa}
+    await enviar_comando_tunel('127.0.0.1', 16161, 'public', payload)
+
 async def enviar_algoritmo_snmp(id_algoritmo):
     payload = {"comando": "SET_ALG", "alg_id": id_algoritmo}
     await enviar_comando_tunel('127.0.0.1', 16161, 'public', payload)
@@ -380,6 +384,7 @@ async def obter_dados_snmp():
 
                         builtins._tempo_execucao_snmp = dados.get("tempo", 0)
                         builtins._algo_id_snmp = dados.get("algo_id", 4)
+                        builtins._mapa_id_snmp = dados.get("mapa_id", 3)
                         
                         for k, v in dados.get("filas", {}).items(): estado_filas[int(k)] = v
                         for k, v in dados.get("semaforos", {}).items(): estado_semaforos[int(k)] = v
@@ -480,6 +485,33 @@ def iniciar_dashboard():
             escoados_anterior = total_escoados
             tempo_anterior = agora
             algo_anterior = algo_atual_snmp
+        # --- VERIFICAR MUDANÇA REMOTA DE MAPA (Sincronização com CLI) ---
+        mapa_atual_snmp = getattr(builtins, '_mapa_id_snmp', 3)
+        if 'menu_mapas' in locals() and mapa_atual_snmp != menu_mapas.indice_selecionado:
+            try:
+                with open(ficheiros_mapas[mapa_atual_snmp], 'r') as f:
+                    cfg = json.load(f)
+                
+                estado_semaforos.clear()
+                estado_semaforos.update({tl['roadIndex']: 1 for tl in cfg['trafficLights']})
+                estado_filas.clear()
+                estado_filas.update({r['id']: r.get('initialCount', 0) for r in cfg['roads']})
+                estado_rtg.clear()
+                estado_rtg.update({r['id']: r.get('rtg', 0) for r in cfg['roads'] if r['type'] == 3})
+                estado_override.clear()
+                estado_override.update({tl['roadIndex']: 0 for tl in cfg['trafficLights']})
+                estado_links.clear()
+                estado_links.update({f"{l['src']}.{l['dest']}": 0 for l in cfg.get('links', [])})
+                
+                pos_nos_base, pos_arestas_base = gerar_topologia_dinamica(cfg, RESOLUCAO_BASE)
+                via_selecionada = None
+                menu_mapas.indice_selecionado = mapa_atual_snmp
+                
+                vazao_atual = 0.0
+                escoados_anterior = 0
+                tempo_anterior = agora
+            except Exception as e:
+                pass
 
         if agora - tempo_anterior >= 15.0:
             vazao_atual = ((total_escoados - escoados_anterior) / (agora - tempo_anterior)) * 60.0
@@ -528,6 +560,12 @@ def iniciar_dashboard():
                             pos_nos_base, pos_arestas_base = gerar_topologia_dinamica(cfg, RESOLUCAO_BASE)
                             via_selecionada = None
                             menu_mapas.indice_selecionado = novo_mapa
+                            disparar_tarefa_fundo(enviar_novo_mapa_snmp(novo_mapa))
+
+                            vazao_atual = 0.0
+                            escoados_anterior = 0
+                            tempo_anterior = time.time()
+                            
                         except Exception as e:
                             print(f"[ERRO] Falha ao carregar configuração do mapa: {e}")
                         continue
@@ -579,10 +617,13 @@ def iniciar_dashboard():
                         if evento.key == pygame.K_BACKSPACE: 
                             texto_rtg_via = texto_rtg_via[:-1]
                         elif evento.key == pygame.K_RETURN:
-                            if texto_rtg_via.isdigit():
-                                disparar_tarefa_fundo(enviar_novo_rtg_snmp(via_selecionada, int(texto_rtg_via)))
+                            try:
+                                novo_valor = float(texto_rtg_via)
+                                disparar_tarefa_fundo(enviar_novo_rtg_snmp(via_selecionada, novo_valor))
+                            except ValueError:
+                                pass # Ignora entradas inválidas
                             via_selecionada = None
-                        elif evento.unicode.isdigit(): 
+                        elif evento.unicode.isdigit() or evento.unicode == '.': 
                             texto_rtg_via += evento.unicode
                 elif consola_visivel: 
                     if evento.key == pygame.K_BACKSPACE: texto_input_consola = texto_input_consola[:-1]
@@ -592,7 +633,7 @@ def iniciar_dashboard():
                             if len(comandos) == 2 and comandos[0].upper() == "ALG": 
                                 disparar_tarefa_fundo(enviar_algoritmo_snmp(int(comandos[1])))
                             elif len(comandos) == 2: 
-                                disparar_tarefa_fundo(enviar_novo_rtg_snmp(int(comandos[0]), int(comandos[1])))
+                                disparar_tarefa_fundo(enviar_novo_rtg_snmp(int(comandos[0]), float(comandos[1])))
                             elif len(comandos) == 3 and comandos[0].upper() == 'O': 
                                 disparar_tarefa_fundo(enviar_override_snmp(int(comandos[1]), int(comandos[2])))
                         except: pass
@@ -691,7 +732,7 @@ def iniciar_dashboard():
             menu_algoritmos.indice_selecionado = algo_atual_snmp - 1
 
         if 'menu_mapas' not in locals():
-            menu_mapas = MenuSuspenso(tamanho_atual[0] - escalar_valor(220, escala_global), escalar_valor(15, escala_global), escalar_valor(200, escala_global), escalar_valor(35, escala_global), opcoes_mapas, fonte_pequena, indice_selecionado=1)
+            menu_mapas = MenuSuspenso(tamanho_atual[0] - escalar_valor(220, escala_global), escalar_valor(15, escala_global), escalar_valor(200, escala_global), escalar_valor(35, escala_global), opcoes_mapas, fonte_pequena, indice_selecionado=3)
         else:
             menu_mapas.x = tamanho_atual[0] - escalar_valor(220, escala_global)
             menu_mapas.y = escalar_valor(15, escala_global)
@@ -721,7 +762,7 @@ def iniciar_dashboard():
             str_rtgs = f"RTGs (Entradas): {' | '.join([f'V{v}={estado_rtg.get(v,0)}' for v in sorted(vias_entrada)])}"
             ecra.blit(fonte_pequena.render(str_rtgs, True, (50, 150, 255)), (escalar_valor(20, escala_global), y_consola + escalar_valor(15, escala_global)))
             
-            texto_ajuda = "O <Via> <0: Auto | 1: Vermelho | 2: Verde>   |   RTG: <via> <valor>   |   ALG <1: RR | 2: Heurística | 3: RL | 4: Back Pressure>"
+            texto_ajuda = "O <Via> <0: Auto | 1: Verde | 2: Vermelho>   |   RTG: <via> <valor>   |   ALG <1: RR | 2: Heurística | 3: RL | 4: Back Pressure>"
             ecra.blit(fonte_pequena.render(texto_ajuda, True, (150, 150, 150)), (escalar_valor(20, escala_global), y_consola + escalar_valor(45, escala_global)))
             
             ecra.blit(fonte_grande.render(f"CMC> {texto_input_consola}_", True, (255, 200, 50)), (escalar_valor(20, escala_global), y_consola + escalar_valor(75, escala_global)))
