@@ -1,10 +1,9 @@
 # ==============================================================================
 # Ficheiro: cmc.py
 # Autores: Eduarda Pereira, Gonçalo Ferreira, Gonçalo Magalhães
-# Descrição: Consola de Monitorização e Controlo (Interface CLI). 
+# Descrição: Consola de Monitorização e Controlo. 
 #            Permite ao administrador enviar comandos para o Sistema Central 
-#            via terminal, utilizando o mesmo mecanismo de Túnel Seguro (JSON + Fernet) 
-#            presente no Dashboard Gráfico.
+#            via terminal, utilizando o mesmo mecanismo de Túnel Seguro (JSON + Fernet).
 # ==============================================================================
 
 import sys
@@ -42,7 +41,7 @@ stats_global = {
     "fila_max": 0,
     "via_pior": 0,
     "cfg": cfg_local,
-    "rtgs": {}  # <-- Adicionado para guardar os RTGs
+    "rtgs": {} 
 }
 
 # =====================================================================
@@ -212,11 +211,11 @@ RTGs (Entradas): {str_rtgs}
 
 
 # =====================================================================
-# 3. INTERFACE DE UTILIZADOR (TUI LOOP)
+# 3. INTERFACE DE UTILIZADOR
 # =====================================================================
 def iniciar_cmc(cifra):
     if os.name == 'nt':
-        os.system('color') # Ativa códigos ANSI no Windows CMD/Powershell
+        os.system('color') 
         
     os.system('clear' if os.name == 'posix' else 'cls')
     
@@ -245,7 +244,7 @@ def iniciar_cmc(cifra):
     sys.stdout.write("\033[14;1H")
     print("Comandos disponíveis:")
     print("  rtg <via> <val>  - Altera taxa geradora. Ex: rtg 101 10.5")
-    print("  o <via> <modo>   - Override (0: Auto | 1: Verm | 2: Verde). Ex: o 101 2")
+    print("  O <via> <modo>   - Override (0: Auto | 1: Verm | 2: Verde). Ex: O 101 2")
     print("  alg <modo>       - Algoritmo (1:RR | 2:Heuristica | 3:RL | 4:BP). Ex: alg 3")
     print("  mapa <id>        - Muda topologia (1:Mapa1 | 2:Mapa2 | 3:Mapa3 | 4:Mapa4)")
     print("  sair             - Termina a consola")
@@ -314,7 +313,7 @@ def iniciar_cmc(cifra):
                 mensagem_sistema = "[ERRO] Comando inválido. Revê as instruções acima."
                 
         except ValueError:
-            mensagem_sistema = "[ERRO] Certifica-te de que os valores numéricos inseridos são válidos."
+            mensagem_sistema = "[ERRO] Certifica que os valores numéricos inseridos são válidos."
         except KeyboardInterrupt:
             os.system('clear' if os.name == 'posix' else 'cls')
             print("\n[CMC] A encerrar a Consola...")

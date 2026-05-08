@@ -4,7 +4,7 @@
 # Descrição: Sistema de Decisão Baseado em Algoritmo de Backpressure.
 #            Este algoritmo controla os semáforos calculando a "pressão" de 
 #            tráfego (diferença entre o tamanho da fila na origem e no destino).
-#            O eixo do cruzamento com maior pressão acumulada recebe luz verde,
+#            O eixo do cruzamento com maior pressão acumulada recebe semáforo verde,
 #            maximizando o escoamento dinâmico e contínuo da rede.
 # ==============================================================================
 
@@ -12,7 +12,7 @@ import asyncio
 
 class SistemaDecisaoBackpressure:
     """
-    Implementa a lógica de decisão de tráfego baseada na política de Backpressure Routing.
+    Implementa a lógica de decisão de tráfego baseada na política de Backpressure.
     """
     def __init__(self, mib_partilhada, configuracao):
         self.mib_partilhada = mib_partilhada
@@ -29,7 +29,7 @@ class SistemaDecisaoBackpressure:
             }
 
     async def start(self):
-        """Ciclo de vida independente (não utilizado nesta arquitetura centralizada pelo SC)."""
+        """Ciclo de vida independente."""
         pass
 
     async def update(self, current_step=None, fast_forward_step=None):

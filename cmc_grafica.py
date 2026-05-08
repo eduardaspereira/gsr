@@ -1,9 +1,9 @@
 # ==============================================================================
 # Ficheiro: cmc_grafica.py
 # Autores: Eduarda Pereira, Gonçalo Ferreira, Gonçalo Magalhães
-# Descrição: Dashboard Gráfico (Cliente/Manager). Interface visual interativa
+# Descrição: Dashboard. Interface visual interativa
 #            para monitorização e controlo do tráfego. Comunica com o Sistema
-#            Central via SNMP, encapsulando pedidos JSON cifrados (Fernet)
+#            Central via SNMP, encapsulando os pedidos JSON cifrados (Fernet)
 #            através de um Túnel Seguro para garantir a integridade da rede.
 # ==============================================================================
 
@@ -106,7 +106,7 @@ def autenticar_utilizador_pygame(ecra, relogio):
         
         # Textos de UI
         texto_titulo = fonte_titulo.render("SISTEMA CENTRAL DE TRÁFEGO", True, (255, 255, 255))
-        texto_sub = fonte_texto.render("Introduza a password mestra para destrancar a rede:", True, (200, 200, 200))
+        texto_sub = fonte_texto.render("Introduza a password mestra:", True, (200, 200, 200))
         ecra.blit(texto_titulo, texto_titulo.get_rect(center=(RESOLUCAO_BASE[0]//2, RESOLUCAO_BASE[1]//2 - 80)))
         ecra.blit(texto_sub, texto_sub.get_rect(center=(RESOLUCAO_BASE[0]//2, RESOLUCAO_BASE[1]//2 - 45)))
         
@@ -322,7 +322,7 @@ def processar_trap(snmpEngine, stateReference, contextEngineId, contextName, var
         alerta_trap = {"ativo": True, "via": via, "carros": carros, "expira": time.time() + 6.0}
 
 async def servidor_traps():
-    """Inicia a escuta na porta UDP 16216 para receber notificações assíncronas do Sistema Central."""
+    """Inicia a escuta na porta UDP 16216 para receber notificações assíncronas do SC."""
     motor = snmp_engine_mod.SnmpEngine()
     snmp_config.addTransport(motor, udp.domainName, udp.UdpTransport().openServerMode(('127.0.0.1', 16216)))
     snmp_config.addV1System(motor, 'my-area', 'public')
@@ -332,8 +332,8 @@ async def servidor_traps():
 
 async def enviar_comando_tunel(ip, porta, comunidade, dicionario_payload):
     """
-    Núcleo da Segurança: Serializa as instruções JSON e aplica criptografia Fernet.
-    O resultado é um bloco binário opaco injetado numa OctetString SNMP válida.
+    Serializa as instruções JSON e aplica criptografia Fernet.
+    O resultado é um bloco binário injetado numa OctetString SNMP válida.
     """
     motor_snmp = SnmpEngine()
     payload_json = json.dumps(dicionario_payload).encode('utf-8')
@@ -350,13 +350,10 @@ async def enviar_comando_tunel(ip, porta, comunidade, dicionario_payload):
     return erro_indicacao, erro_estado, binds
 
 def disparar_tarefa_fundo(corotina):
-    """Lança requisições SNMP numa Thread separada para não bloquear os FPS da Interface Gráfica."""
+    """Lança requisições SNMP numa Thread separada para não bloquear a Interface Gráfica."""
     threading.Thread(target=lambda: asyncio.run(corotina), daemon=True).start()
 
 async def enviar_novo_mapa_snmp(id_mapa):
-    if id_mapa not in [1, 2, 3, 4]:
-        print(f"[ERRO] Mapa inválido: {id_mapa}. Deve estar entre 1 e 4.")
-        return
     payload = {"comando": "SET_MAPA", "mapa_id": id_mapa}
     await enviar_comando_tunel('127.0.0.1', 16161, 'public', payload)
 
@@ -373,7 +370,7 @@ async def enviar_override_snmp(via, modo):
     await enviar_comando_tunel('127.0.0.1', 16161, 'public', payload)
 
 async def obter_dados_snmp():
-    """Pooling contínuo (2Hz) para puxar o estado cifrado da rede através do Túnel."""
+    """Pooling contínuo para puxar o estado cifrado da rede através do Túnel."""
     while True:
         try:
             payload = {"comando": "PULL_STATE"}
@@ -387,7 +384,7 @@ async def obter_dados_snmp():
 
                         builtins._tempo_execucao_snmp = dados.get("tempo", 0)
                         builtins._algo_id_snmp = dados.get("algo_id", 4)
-                        builtins._mapa_id_snmp = dados.get("mapa_id", 4)
+                        builtins._mapa_id_snmp = dados.get("mapa_id", 3)
                         
                         for k, v in dados.get("filas", {}).items(): estado_filas[int(k)] = v
                         for k, v in dados.get("semaforos", {}).items(): estado_semaforos[int(k)] = v
@@ -395,7 +392,7 @@ async def obter_dados_snmp():
                         for k, v in dados.get("overrides", {}).items(): estado_override[int(k)] = v
                         for k, v in dados.get("links", {}).items(): estado_links[k] = v
         except Exception:
-            pass # Silencia erros de timeout ou rede para não poluir o terminal gráfico
+            pass 
         
         await asyncio.sleep(0.5)
 
@@ -411,10 +408,10 @@ def iniciar_thread_snmp():
 def iniciar_dashboard():
     global confirmacao_algoritmo, cfg, cifra_fernet
 
-    print("A inicializar motor gráfico...")
+    print("A iniciar motor gráfico...")
     pygame.init()
     ecra = pygame.display.set_mode(RESOLUCAO_BASE, pygame.RESIZABLE)
-    pygame.display.set_caption("Dashboard Seguro (Fase B) - Gestão de Tráfego")
+    pygame.display.set_caption("Dashboard - Gestão de Tráfego")
     relogio = pygame.time.Clock()
 
     # --- 1. BLOQUEIO INICIAL: AUTENTICAÇÃO ---
@@ -437,7 +434,7 @@ def iniciar_dashboard():
         except Exception:
             ecra.fill((30, 35, 40))
             fonte_erro = pygame.font.SysFont("Arial", 20, bold=True)
-            texto_erro = fonte_erro.render("ERRO: Password Incorreta ou Cofre Ausente!", True, (255, 80, 80))
+            texto_erro = fonte_erro.render("ERRO: Password Incorreta!", True, (255, 80, 80))
             ecra.blit(texto_erro, texto_erro.get_rect(center=(RESOLUCAO_BASE[0]//2, RESOLUCAO_BASE[1]//2)))
             pygame.display.flip()
             time.sleep(2) 
@@ -454,7 +451,7 @@ def iniciar_dashboard():
     algo_anterior = 4 
     
     opcoes_algos = [(1, "ROUND_ROBIN"), (2, "HEURISTICA"), (3, "RL"), (4, "BACKPRESSURE")]
-    opcoes_mapas = [(1, "Mapa 1 (config)"), (2, "Mapa 2 (config2)"), (3, "Mapa 3 (config3)"), (4, "Mapa 4 (config4)")]
+    opcoes_mapas = [(0, "Mapa 1 (config)"), (1, "Mapa 2 (config2)"), (2, "Mapa 3 (config3)"), (3, "Mapa 4 (config4)")]
     ficheiros_mapas = ["Mapas/config.json", "Mapas/config2.json", "Mapas/config3.json", "Mapas/config4.json"]
 
     via_selecionada = None
@@ -489,11 +486,10 @@ def iniciar_dashboard():
             tempo_anterior = agora
             algo_anterior = algo_atual_snmp
         # --- VERIFICAR MUDANÇA REMOTA DE MAPA (Sincronização com CLI) ---
-        mapa_atual_snmp = getattr(builtins, '_mapa_id_snmp', 4)
-        indice_mapa_snmp = mapa_atual_snmp - 1  # Converter de 1-based para 0-based
-        if 'menu_mapas' in locals() and indice_mapa_snmp != menu_mapas.indice_selecionado:
+        mapa_atual_snmp = getattr(builtins, '_mapa_id_snmp', 3)
+        if 'menu_mapas' in locals() and mapa_atual_snmp != menu_mapas.indice_selecionado:
             try:
-                with open(ficheiros_mapas[indice_mapa_snmp], 'r') as f:
+                with open(ficheiros_mapas[mapa_atual_snmp], 'r') as f:
                     cfg = json.load(f)
                 
                 estado_semaforos.clear()
@@ -509,7 +505,7 @@ def iniciar_dashboard():
                 
                 pos_nos_base, pos_arestas_base = gerar_topologia_dinamica(cfg, RESOLUCAO_BASE)
                 via_selecionada = None
-                menu_mapas.indice_selecionado = indice_mapa_snmp
+                menu_mapas.indice_selecionado = mapa_atual_snmp
                 
                 vazao_atual = 0.0
                 escoados_anterior = 0
@@ -563,7 +559,7 @@ def iniciar_dashboard():
                             
                             pos_nos_base, pos_arestas_base = gerar_topologia_dinamica(cfg, RESOLUCAO_BASE)
                             via_selecionada = None
-                            menu_mapas.indice_selecionado = novo_mapa - 1  # Converter de 1-based para 0-based
+                            menu_mapas.indice_selecionado = novo_mapa
                             disparar_tarefa_fundo(enviar_novo_mapa_snmp(novo_mapa))
 
                             vazao_atual = 0.0

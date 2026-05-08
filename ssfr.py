@@ -14,7 +14,7 @@ class SistemaSimulacao:
     """
     Motor principal de simulação de tráfego. 
     Lê e atualiza a Base de Informação de Gestão (MIB) em tempo real, 
-    simulando a física do trânsito a cada ciclo de tempo (dt).
+    simulando a física do trânsito a cada ciclo de tempo.
     """
     
     def __init__(self, mib_partilhada, configuracao):
@@ -39,7 +39,7 @@ class SistemaSimulacao:
 
     def executar_passo(self, duracao):
         """
-        Executa um único ciclo (frame) da simulação.
+        Executa um único ciclo da simulação.
         O processo está modularizado em geração e movimentação para clareza.
         """
         self._gerar_trafego_entrada(duracao)
@@ -49,7 +49,7 @@ class SistemaSimulacao:
         """
         1. GERAÇÃO DE TRÁFEGO
         Injeta novos veículos nas vias de entrada (extremidades do mapa) 
-        com base na Taxa Geradora de Tráfego (RTG - veículos por minuto).
+        com base no RTG.
         """
         for via in self.configuracao['roads']:
             id_via = via['id']
@@ -85,7 +85,7 @@ class SistemaSimulacao:
     def _processar_movimentos(self, duracao):
         """
         2. DISTRIBUIÇÃO E ESCOAMENTO NOS CRUZAMENTOS
-        Avalia os semáforos, calcula a probabilidade de viragem (FlowRate) e 
+        Avalia os semáforos, calcula a probabilidade de FlowRate e 
         move os veículos de uma via para a próxima, tratando limites físicos.
         """
         # Mapeia as ligações disponíveis por via de origem

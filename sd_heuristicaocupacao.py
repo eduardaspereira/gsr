@@ -2,10 +2,10 @@
 # Ficheiro: sd_heuristicaocupacao.py
 # Autores: Eduarda Pereira, Gonçalo Ferreira, Gonçalo Magalhães
 # Descrição: Sistema de Decisão Baseado em Heurística de Ocupação.
-#            Ao contrário de um ciclo fixo (Round Robin), este algoritmo alterna
+#            Ao contrário de um ciclo fixo, este algoritmo alterna
 #            os eixos de um cruzamento, mas calcula o tempo de Verde dinamicamente
-#            baseando-se no número de veículos em espera (Ex: 2s por veículo),
-#            limitado por tetos de segurança para evitar starvation (fome) da rede.
+#            baseando-se no número de veículos em espera,
+#            limitado por valores de segurança para evitar starvation da rede.
 # ==============================================================================
 
 import asyncio
@@ -30,7 +30,7 @@ class SistemaDecisaoOcupacao:
             }
 
     async def start(self):
-        """Ciclo de vida independente (não utilizado nesta arquitetura centralizada pelo SC)."""
+        """Ciclo de vida independente."""
         print("[SD-HEUR] Algoritmo de Ocupação Dinâmica preparado.")
 
     async def update(self, current_step=None, fast_forward_step=None):

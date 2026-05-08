@@ -26,4 +26,4 @@ Perguntas
 - faz sentido ter override semaforo via de saída? por [Manual] :retirar caixa configs
 - mapa 1 permite override nas vias de entrada/saida
 - stor quer metricas em carros/seg? 
-
+- meter dashboard na cloud?

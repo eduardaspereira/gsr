@@ -5,7 +5,7 @@
 #            Implementa a arquitetura KEK/DEK: gera a Chave Mestra (DEK) para 
 #            as comunicações SNMP e protege-a num ficheiro físico ('seguranca.key')
 #            utilizando uma chave derivada (KEK) gerada a partir da password 
-#            do utilizador (via linha de comandos).
+#            do utilizador.
 # ==============================================================================
 
 import base64

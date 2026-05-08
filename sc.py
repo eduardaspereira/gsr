@@ -1,10 +1,10 @@
 # ==============================================================================
 # Ficheiro: sc.py
 # Autores: Eduarda Pereira, Gonçalo Ferreira, Gonçalo Magalhães
-# Descrição: Sistema Central (Agente SNMP e Motor de Simulação).
+# Descrição: Sistema Central.
 #            Atua como o servidor do projeto, mantendo a MIB em memória, gerindo
-#            a simulação física (SSFR) e instanciando os Sistemas de Decisão (RL, 
-#            Backpressure, etc). Implementa Defesa Ativa bloqueando acessos em
+#            a simulação física (SSFR) e instanciando os Sistemas de Decisão. 
+#            Implementa Defesa Ativa bloqueando acessos em
 #            plain-text e processando apenas comandos via Túnel Seguro (Fernet).
 # ==============================================================================
 
@@ -56,7 +56,7 @@ try:
         chave_encriptada = ficheiro_chave.read()
     CHAVE_SECRETA = cifra_cofre.decrypt(chave_encriptada)
     cifra = Fernet(CHAVE_SECRETA)
-    print("[OK] Segredo lido com sucesso. Túnel Seguro ativado!\n")
+    print("[OK] Password lida com sucesso. Túnel Seguro ativado!\n")
 except Exception as erro:
     print(f"[ERRO] Falha ao destrancar o cofre com a password fornecida: {erro}")
     sys.exit(1)
@@ -198,7 +198,7 @@ class ResponderSetSeguro(cmdrsp.SetCommandResponder):
         snmpEngine.msgAndPduDsp.returnResponsePdu(snmpEngine, messageProcessingModel, securityModel, securityName, securityLevel, contextEngineId, contextName, pduVersion, resposta_pdu, maxSizeResponseScopedPDU, stateReference, {})
 
 class ResponderGetBloqueado(cmdrsp.GetCommandResponder):
-    """Mata proativamente qualquer pedido GET em plain-text para proteger a topologia da rede."""
+    """Elimina qualquer pedido GET em plain-text para proteger a topologia da rede."""
     def processPdu(self, snmpEngine, messageProcessingModel, securityModel, securityName, securityLevel, contextEngineId, contextName, pduVersion, PDU, maxSizeResponseScopedPDU, stateReference):
         resposta_pdu = v2c.apiPDU.getResponse(PDU)
         binds = v2c.apiPDU.getVarBinds(PDU)
@@ -278,11 +278,11 @@ async def iniciar_sistema_central():
                 if ciclo % 250 == 0: 
                     print(f"[TREINO RL] Progresso: {ciclo}/10000 ciclos | Memória: {len(sistema_decisao.q_table)} estados")
 
-            print("[TREINO RL] Treino concluído! A persistir conhecimento no disco...")
+            print("[TREINO RL] Treino concluído!")
             sistema_decisao.guardar_cerebro()
             sistema_decisao.epsilon = 0.05 
         else:
-            print("\n[TREINO RL] Cérebro detetado em disco. A saltar fase de treino!")
+            print("\n[TREINO RL] Treino prévio detetado. A saltar fase de treino!")
     
     resetar_metricas_mib(mib, cfg)
     motor_fisica = SistemaSimulacao(mib, cfg)
@@ -294,7 +294,7 @@ async def iniciar_sistema_central():
             escritor = csv.writer(ficheiro, delimiter=';') 
             escritor.writerow(["Tempo (s)", "Algoritmo", "Total Escoados", "Fila Maxima", "Ocupacao Media"])
     except PermissionError:
-        print(f"\n[ERRO CRÍTICO] O ficheiro {nome_ficheiro_csv} está aberto noutro programa (ex: Excel)!")
+        print(f"\n[ERRO CRÍTICO] O ficheiro {nome_ficheiro_csv} está aberto noutro programa!")
         sys.exit(1)
 
     async def ciclo_simulacao():
@@ -306,8 +306,8 @@ async def iniciar_sistema_central():
         dicionario_traps_enviadas = {} 
         algoritmo_anterior = algoritmo_ativo
         mapa_atual = 4
-        print(f"\n=== SISTEMA CENTRAL A CORRER (UDP 16161) | Algoritmo: {algoritmo_ativo} ===")
-        print(f"A exportar logs analíticos para: {nome_ficheiro_csv}")
+        print(f"\n=== SISTEMA CENTRAL A CORRER | Algoritmo: {algoritmo_ativo} ===")
+        print(f"A exportar logs para: {nome_ficheiro_csv}")
         
         while True:
             # --- 1.A VERIFICAR MUDANÇAS DINÂMICAS DE MAPA ---
@@ -359,7 +359,7 @@ async def iniciar_sistema_central():
             algoritmo_ativo = MAPA_ALGORITMOS.get(id_novo_algoritmo, "BACKPRESSURE")
             
             if algoritmo_ativo != algoritmo_anterior:
-                print(f"\n[HOT-SWAP] Alteração recebida: Mudando de {algoritmo_anterior} para {algoritmo_ativo}...")
+                print(f"\n[HOT-SWAP] Alteração recebida: A mudar de {algoritmo_anterior} para {algoritmo_ativo}...")
                 sistema_decisao = instanciar_sistema_decisao(algoritmo_ativo)
                 
                 if algoritmo_ativo == "RL":

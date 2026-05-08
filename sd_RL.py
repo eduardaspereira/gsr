@@ -17,7 +17,7 @@ class SistemaDecisaoRL:
     """
     Agente Q-Learning para otimização de semáforos.
     Utiliza uma Q-Table persistente e recompensas baseadas na variação do número
-    de veículos à espera no cruzamento (delta de escoamento local).
+    de veículos à espera no cruzamento.
     """
     def __init__(self, mib_partilhada, configuracao):
         self.mib_partilhada = mib_partilhada
@@ -38,7 +38,7 @@ class SistemaDecisaoRL:
         self.epsilon = 0.2    # Taxa de Exploração (Exploration Rate inicial)
         
         self.precisa_treino = True 
-        self.carregar_cerebro()
+        self.carregar_qtable()
         
         # Memória de Curto Prazo (para calcular o delta R na transição s -> s')
         self.estado_anterior = {}
@@ -53,28 +53,28 @@ class SistemaDecisaoRL:
                 'tempo_restante': 15
             }
 
-    def carregar_cerebro(self):
-        """Carrega a Q-Table do disco (se existir para a topologia atual)."""
+    def carregar_qtable(self):
+        """Carrega a Q-Table (se existir para a topologia atual)."""
         if os.path.exists(self.ficheiro_cerebro):
             try:
                 with open(self.ficheiro_cerebro, 'r') as ficheiro:
                     q_table_chaves_str = json.load(ficheiro)
                     # O JSON guarda chaves como string, aqui converte-se de volta para int (Estado)
                     self.q_table = {int(k): v for k, v in q_table_chaves_str.items()}
-                print(f"[SD-RL] Cérebro carregado: {self.ficheiro_cerebro} ({len(self.q_table)} estados mapeados)")
+                print(f"[SD-RL] Q-Table carregada: {self.ficheiro_cerebro} ({len(self.q_table)} estados mapeados)")
                 self.precisa_treino = False
                 self.epsilon = 0.05 # Reduz a exploração, foca no conhecimento adquirido (Exploitation)
             except Exception as erro:
-                print(f"[SD-RL] Erro ao ler cérebro corrompido: {erro}. A iniciar treino de raiz.")
+                print(f"[SD-RL] Erro ao ler Q-Table corrompida: {erro}. A iniciar treino de raiz.")
         else:
-            print(f"[SD-RL] Novo cenário detetado (Hash: {self.hash_mapa}). A iniciar treino de raiz.")
+            print(f"[SD-RL] Nova topologia detetada (Hash: {self.hash_mapa}). A iniciar treino de raiz.")
 
-    def guardar_cerebro(self):
-        """Persiste a matriz de conhecimento Q-Table no disco em formato JSON."""
+    def guardar_qtable(self):
+        """Persiste a matriz de conhecimento Q-Table em formato JSON."""
         try:
             with open(self.ficheiro_cerebro, 'w') as ficheiro:
                 json.dump(self.q_table, ficheiro)
-            print(f"[SD-RL] Cérebro gravado com sucesso.")
+            print(f"[SD-RL] Q-Table guardada com sucesso.")
         except Exception:
             pass
 
@@ -89,7 +89,6 @@ class SistemaDecisaoRL:
 
     def _obter_estado_cruzamento(self, id_cruzamento, eixo_ativo):
         """
-        Observa o ambiente e condensa-o num Estado Discreto (1D) usando Base 4.
         Avalia o peso das vias a Verde e das vias a Vermelho em simultâneo.
         """
         carros_verde = 0
@@ -116,8 +115,8 @@ class SistemaDecisaoRL:
         return estado_codificado
 
     async def start(self):
-        """Ciclo de vida (não invocado devido ao controlo sincronizado do Sistema Central)."""
-        print("[SD-RL] Inicializado com Visão 360º e Funções de Recompensa Locais.")
+        """Ciclo de vida."""
+        print("[SD-RL] Iniciado com Visão e Funções de Recompensa Locais.")
 
     async def update(self, current_step=None, fast_forward_step=None):
         """Ciclo de Decisão Principal: Avalia recompensas, atualiza a Q-Table e escolhe novas ações."""

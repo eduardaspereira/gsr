@@ -1,8 +1,8 @@
 # ==============================================================================
 # Ficheiro: sd_roundrobin.py
 # Autores: Eduarda Pereira, Gonçalo Ferreira, Gonçalo Magalhães
-# Descrição: Sistema de Decisão Baseado em Round-Robin (Ciclo Fixo).
-#            Este algoritmo atua como a baseline (base de comparação) do projeto.
+# Descrição: Sistema de Decisão Baseado em Round-Robin.
+#            Este algoritmo atua como a baseline do projeto.
 #            É "cego" ao volume de tráfego, alternando a luz verde entre o Eixo 1 
 #            e o Eixo 2 de cada cruzamento de forma estática e periódica.
 # ==============================================================================
@@ -30,16 +30,15 @@ class SistemaDecisaoRoundRobin:
                 'tempo_restante': tempo_verde_inicial
             }
             
-        print("[SD-RR] Algoritmo Round-Robin inicializado (Exclusão mútua garantida).")
+        print("[SD-RR] Algoritmo Round-Robin iniciado.")
 
     async def start(self):
-        """Ciclo de vida (não invocado diretamente devido à arquitetura centralizada do SC)."""
-        print("[SD-RR] Algoritmo Round-Robin (Ciclo Fixo) pronto.")
+        print("[SD-RR] Algoritmo Round-Robin pronto.")
 
     async def update(self, current_step=None, fast_forward_step=None):
         """
         Calcula as transições de tempo fixo. Quando o tempo de um eixo esgota, 
-        passa ao amarelo e depois roda o eixo ativo.
+        passa para amarelo e depois roda o eixo ativo.
         """
         passo = current_step if current_step is not None else fast_forward_step
         if passo is None: 

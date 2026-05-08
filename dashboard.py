@@ -1,7 +1,7 @@
 # ==============================================================================
 # Ficheiro: dashboard.py
 # Autores: Eduarda Pereira, Gonçalo Ferreira, Gonçalo Magalhães
-# Descrição: Dashboard Analítico (Web). Interface interativa desenvolvida em 
+# Descrição: Dashboard desenvolvido em 
 #            Streamlit para visualização em tempo real do desempenho dos 
 #            diferentes motores de decisão, lendo os logs CSV do Sistema Central.
 # ==============================================================================
@@ -19,8 +19,6 @@ import time
 def carregar_dados_simulacao():
     """
     Lê todos os ficheiros CSV do histórico gerados pelo Sistema Central.
-    Usa cache de 2 segundos (ttl=2) para evitar leituras excessivas ao disco rígido.
-    Devolve um DataFrame consolidado e o nome do algoritmo mais recente.
     """
     # Constrói o caminho absoluto para a pasta CSVs a partir da localização do script
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -132,7 +130,7 @@ def renderizar_modo_comparativo(df_dados, metrica):
 def main():
     st.set_page_config(page_title="Dashboard GSR", page_icon="🚦", layout="wide")
     
-    st.title("🚦 Dashboard Analítico de Tráfego")
+    st.title("🚦 Dashboard Analítico de Gestão de Tráfego")
     st.markdown("Visualização e Análise de Desempenho dos Algoritmos de Decisão.")
 
     # Obter dados em tempo real
