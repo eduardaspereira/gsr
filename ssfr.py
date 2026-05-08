@@ -113,6 +113,11 @@ class SistemaSimulacao:
                             # Os veículos desaparecem do mapa (escoamento)
                             self.mib_partilhada[f"{self.base_oid}.3.1.6.{id_origem}"] -= saida_efetiva
                             self.acumuladores_saida[id_origem] -= saida_efetiva
+                            
+                            # Atualiza métrica global de carros escoados
+                            oid_escoados = f"{self.base_oid}.1.9.0"
+                            self.mib_partilhada[oid_escoados] = self.mib_partilhada.get(oid_escoados, 0) + saida_efetiva
+                            
             
             # --- CASO B: Via Normal com Semáforo e Cruzamento ---
             else:

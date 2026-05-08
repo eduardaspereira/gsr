@@ -83,6 +83,7 @@ mib[f"{OID_BASE}.1.4.0"] = cfg['geral']['algoMinGreenTime']
 mib[f"{OID_BASE}.1.5.0"] = cfg['geral']['algoYellowTime']
 mib[f"{OID_BASE}.1.6.0"] = 4  # Algoritmo padrão: Backpressure
 mib[f"{OID_BASE}.1.7.0"] = 0  
+mib[f"{OID_BASE}.1.9.0"] = 0  # Total de carros escoados  
 
 for rua in cfg['roads']:
     id_rua = rua['id']
@@ -236,6 +237,7 @@ async def disparar_alerta_trap(id_via, numero_carros):
 
 def resetar_metricas_mib(dicionario_mib, configuracao):
     dicionario_mib[f"{OID_BASE}.1.7.0"] = 0
+    dicionario_mib[f"{OID_BASE}.1.9.0"] = 0  # Total de carros escoados
     for rua in configuracao['roads']:
         dicionario_mib[f"{OID_BASE}.3.1.6.{rua['id']}"] = rua.get('initialCount', 0)
     for ligacao in configuracao.get('links', []):
@@ -279,7 +281,7 @@ async def iniciar_sistema_central():
                     print(f"[TREINO RL] Progresso: {ciclo}/10000 ciclos | Memória: {len(sistema_decisao.q_table)} estados")
 
             print("[TREINO RL] Treino concluído!")
-            sistema_decisao.guardar_cerebro()
+            sistema_decisao.guardar_qtable()
             sistema_decisao.epsilon = 0.05 
         else:
             print("\n[TREINO RL] Treino prévio detetado. A saltar fase de treino!")
@@ -332,6 +334,7 @@ async def iniciar_sistema_central():
                     mib[f"{OID_BASE}.1.6.0"] = algoritmo_salvo
                     mib[f"{OID_BASE}.1.7.0"] = 0
                     mib[f"{OID_BASE}.1.8.0"] = id_novo_mapa
+                    mib[f"{OID_BASE}.1.9.0"] = 0
                     
                     for rua in cfg['roads']:
                         mib[f"{OID_BASE}.3.1.4.{rua['id']}"] = rua.get('rtg', 5)
@@ -369,7 +372,7 @@ async def iniciar_sistema_central():
                     for c in range(10000):
                         simulador_treino.executar_passo(5) 
                         await sistema_decisao.update(fast_forward_step=5)
-                    sistema_decisao.guardar_cerebro()
+                    sistema_decisao.guardar_qtable()
                     sistema_decisao.epsilon = 0.05 
                     print("[TREINO RL] Adaptação concluída.")
                 
@@ -446,8 +449,8 @@ async def iniciar_sistema_central():
                 print(f"[MONITOR {algoritmo_ativo}] T={tempo_decorrido}s | Escoados: {total_escoados} v | Fila Máx: {maxima_fila} v")
             
             iteracao += 1
-            # Acelera em 10x ticks
-            await asyncio.sleep(duracao_passo/10.0)
+            
+            await asyncio.sleep(duracao_passo)
 
     await ciclo_simulacao()
 
