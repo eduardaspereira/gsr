@@ -354,6 +354,9 @@ def disparar_tarefa_fundo(corotina):
     threading.Thread(target=lambda: asyncio.run(corotina), daemon=True).start()
 
 async def enviar_novo_mapa_snmp(id_mapa):
+    if id_mapa not in [1, 2, 3, 4]:
+        print(f"[ERRO] Mapa inválido: {id_mapa}. Deve estar entre 1 e 4.")
+        return
     payload = {"comando": "SET_MAPA", "mapa_id": id_mapa}
     await enviar_comando_tunel('127.0.0.1', 16161, 'public', payload)
 
@@ -384,7 +387,7 @@ async def obter_dados_snmp():
 
                         builtins._tempo_execucao_snmp = dados.get("tempo", 0)
                         builtins._algo_id_snmp = dados.get("algo_id", 4)
-                        builtins._mapa_id_snmp = dados.get("mapa_id", 3)
+                        builtins._mapa_id_snmp = dados.get("mapa_id", 4)
                         
                         for k, v in dados.get("filas", {}).items(): estado_filas[int(k)] = v
                         for k, v in dados.get("semaforos", {}).items(): estado_semaforos[int(k)] = v
@@ -451,7 +454,7 @@ def iniciar_dashboard():
     algo_anterior = 4 
     
     opcoes_algos = [(1, "ROUND_ROBIN"), (2, "HEURISTICA"), (3, "RL"), (4, "BACKPRESSURE")]
-    opcoes_mapas = [(0, "Mapa 1 (config)"), (1, "Mapa 2 (config2)"), (2, "Mapa 3 (config3)"), (3, "Mapa 4 (config4)")]
+    opcoes_mapas = [(1, "Mapa 1 (config)"), (2, "Mapa 2 (config2)"), (3, "Mapa 3 (config3)"), (4, "Mapa 4 (config4)")]
     ficheiros_mapas = ["Mapas/config.json", "Mapas/config2.json", "Mapas/config3.json", "Mapas/config4.json"]
 
     via_selecionada = None
@@ -486,10 +489,11 @@ def iniciar_dashboard():
             tempo_anterior = agora
             algo_anterior = algo_atual_snmp
         # --- VERIFICAR MUDANÇA REMOTA DE MAPA (Sincronização com CLI) ---
-        mapa_atual_snmp = getattr(builtins, '_mapa_id_snmp', 3)
-        if 'menu_mapas' in locals() and mapa_atual_snmp != menu_mapas.indice_selecionado:
+        mapa_atual_snmp = getattr(builtins, '_mapa_id_snmp', 4)
+        indice_mapa_snmp = mapa_atual_snmp - 1  # Converter de 1-based para 0-based
+        if 'menu_mapas' in locals() and indice_mapa_snmp != menu_mapas.indice_selecionado:
             try:
-                with open(ficheiros_mapas[mapa_atual_snmp], 'r') as f:
+                with open(ficheiros_mapas[indice_mapa_snmp], 'r') as f:
                     cfg = json.load(f)
                 
                 estado_semaforos.clear()
@@ -505,7 +509,7 @@ def iniciar_dashboard():
                 
                 pos_nos_base, pos_arestas_base = gerar_topologia_dinamica(cfg, RESOLUCAO_BASE)
                 via_selecionada = None
-                menu_mapas.indice_selecionado = mapa_atual_snmp
+                menu_mapas.indice_selecionado = indice_mapa_snmp
                 
                 vazao_atual = 0.0
                 escoados_anterior = 0
@@ -559,7 +563,7 @@ def iniciar_dashboard():
                             
                             pos_nos_base, pos_arestas_base = gerar_topologia_dinamica(cfg, RESOLUCAO_BASE)
                             via_selecionada = None
-                            menu_mapas.indice_selecionado = novo_mapa
+                            menu_mapas.indice_selecionado = novo_mapa - 1  # Converter de 1-based para 0-based
                             disparar_tarefa_fundo(enviar_novo_mapa_snmp(novo_mapa))
 
                             vazao_atual = 0.0

@@ -135,7 +135,7 @@ class SistemaSimulacao:
                                 
                                 # 2. Processa a lógica de encaminhamento para cada veículo individualmente
                                 for _ in range(movimento_efetivo):
-                                    # Lógica de "Roleta" para escolher a direção baseada no FlowRate
+                                    # Lógica de Roleta para escolher a direção baseada no FlowRate
                                     rand = random.uniform(0, fluxo_total)
                                     acumulado = 0
                                     

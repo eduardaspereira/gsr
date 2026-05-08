@@ -33,7 +33,7 @@ except Exception:
 stats_global = {
     "tempo": 0,
     "algo_id": 4,
-    "mapa_id": 3,
+    "mapa_id": 4,
     "escoados": 0,
     "escoados_anterior": 0,
     "tempo_anterior": time.time(),
@@ -127,7 +127,7 @@ async def obter_dados_snmp(cifra):
                         stats_global["tempo"] = dados.get("tempo", 0)
                         
                         novo_algo = dados.get("algo_id", 4)
-                        novo_mapa = dados.get("mapa_id", 3)
+                        novo_mapa = dados.get("mapa_id", 4)
                         
                         # Sincronização automática com a Interface Gráfica
                         if novo_algo != stats_global["algo_id"] or novo_mapa != stats_global["mapa_id"]:
@@ -247,7 +247,7 @@ def iniciar_cmc(cifra):
     print("  rtg <via> <val>  - Altera taxa geradora. Ex: rtg 101 10.5")
     print("  o <via> <modo>   - Override (0: Auto | 1: Verm | 2: Verde). Ex: o 101 2")
     print("  alg <modo>       - Algoritmo (1:RR | 2:Heuristica | 3:RL | 4:BP). Ex: alg 3")
-    print("  mapa <id>        - Muda topologia (0:Mapa1 | 1:Mapa2 | 2:Mapa3 | 3:Mapa4)")
+    print("  mapa <id>        - Muda topologia (1:Mapa1 | 2:Mapa2 | 3:Mapa3 | 4:Mapa4)")
     print("  sair             - Termina a consola")
     
     mensagem_sistema = "A aguardar comandos..."
@@ -293,8 +293,8 @@ def iniciar_cmc(cifra):
             # --- MAPA (Mudança de Topologia) ---
             elif partes[0] == 'mapa' and len(partes) == 2:
                 id_mapa = int(partes[1])
-                if id_mapa not in [0, 1, 2, 3]:
-                    mensagem_sistema = "[ERRO] Mapa inválido. Usa 0, 1, 2 ou 3."
+                if id_mapa not in [1, 2, 3, 4]:
+                    mensagem_sistema = "[ERRO] Mapa inválido. Usa 1, 2, 3 ou 4."
                     continue
                 
                 payload = {"comando": "SET_MAPA", "mapa_id": id_mapa}

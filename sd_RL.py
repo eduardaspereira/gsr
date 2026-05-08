@@ -24,7 +24,7 @@ class SistemaDecisaoRL:
         self.configuracao = configuracao
         self.base_oid = "1.3.6.1.3.2026.1"
 
-        # --- GERAR ASSINATURA ÚNICA DO MAPA (Evita mistura de cérebros) ---
+        # --- GERAR ASSINATURA ÚNICA DO MAPA ---
         assinatura_mapa = "CR:" + ",".join(str(c['id']) for c in configuracao.get('crossroads', []))
         assinatura_mapa += "|V:" + ",".join(str(r['id']) for r in configuracao.get('roads', []))
         self.hash_mapa = hashlib.md5(assinatura_mapa.encode()).hexdigest()[:8]

@@ -145,7 +145,7 @@ class ResponderSetSeguro(cmdrsp.SetCommandResponder):
                         estado_atual = {
                             "tempo": mib.get(f"{OID_BASE}.1.7.0", 0),
                             "algo_id": mib.get(f"{OID_BASE}.1.6.0", 4),
-                            "mapa_id": mib.get(f"{OID_BASE}.1.8.0", 3),
+                            "mapa_id": mib.get(f"{OID_BASE}.1.8.0", 4),
                             "filas": {r['id']: mib.get(f"{OID_BASE}.3.1.6.{r['id']}", 0) for r in cfg['roads']},
                             "semaforos": {tl['roadIndex']: mib.get(f"{OID_BASE}.4.1.3.{tl['roadIndex']}", 1) for tl in cfg['trafficLights']},
                             "rtgs": {r['id']: mib.get(f"{OID_BASE}.3.1.4.{r['id']}", 0) for r in cfg['roads'] if r['type'] == 3},
@@ -169,8 +169,13 @@ class ResponderSetSeguro(cmdrsp.SetCommandResponder):
                         novos_binds.append((oid, v2c.OctetString(cifra.encrypt(b'{"status": "sucesso"}'))))
 
                     elif tipo_comando == "SET_MAPA":
-                        mib[f"{OID_BASE}.1.8.0"] = comando_json["mapa_id"]
-                        novos_binds.append((oid, v2c.OctetString(cifra.encrypt(b'{"status": "sucesso"}'))))
+                        id_mapa = comando_json.get("mapa_id")
+                        if id_mapa not in [1, 2, 3, 4]:
+                            resposta = {"status": "erro", "mensagem": "ID de mapa inválido. Use 1, 2, 3 ou 4."}
+                            novos_binds.append((oid, v2c.OctetString(cifra.encrypt(json.dumps(resposta).encode('utf-8')))))
+                        else:
+                            mib[f"{OID_BASE}.1.8.0"] = id_mapa
+                            novos_binds.append((oid, v2c.OctetString(cifra.encrypt(b'{"status": "sucesso"}'))))
 
                 except InvalidToken:
                     print("[SEGURANÇA] Intrusão detetada! Falha na desencriptação do payload.")
@@ -300,7 +305,7 @@ async def iniciar_sistema_central():
         marca_tempo_inicio = time.time()
         dicionario_traps_enviadas = {} 
         algoritmo_anterior = algoritmo_ativo
-        mapa_atual = 3
+        mapa_atual = 4
         print(f"\n=== SISTEMA CENTRAL A CORRER (UDP 16161) | Algoritmo: {algoritmo_ativo} ===")
         print(f"A exportar logs analíticos para: {nome_ficheiro_csv}")
         
@@ -309,10 +314,11 @@ async def iniciar_sistema_central():
             id_novo_mapa = mib.get(f"{OID_BASE}.1.8.0", mapa_atual)
             if id_novo_mapa != mapa_atual:
                 ficheiros_mapas = ["Mapas/config.json", "Mapas/config2.json", "Mapas/config3.json", "Mapas/config4.json"]
-                print(f"\n[HOT-SWAP] Alteração recebida: A carregar a topologia {ficheiros_mapas[id_novo_mapa]}...")
+                indice_mapa = id_novo_mapa - 1  # Converter de 1-based para 0-based
+                print(f"\n[HOT-SWAP] Alteração recebida: A carregar a topologia {ficheiros_mapas[indice_mapa]}...")
                 
                 try:
-                    with open(ficheiros_mapas[id_novo_mapa], 'r') as f:
+                    with open(ficheiros_mapas[indice_mapa], 'r') as f:
                         cfg.clear()
                         cfg.update(json.load(f))
                     
