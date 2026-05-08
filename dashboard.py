@@ -22,7 +22,10 @@ def carregar_dados_simulacao():
     Usa cache de 2 segundos (ttl=2) para evitar leituras excessivas ao disco rígido.
     Devolve um DataFrame consolidado e o nome do algoritmo mais recente.
     """
-    ficheiros_csv = glob.glob("historico_simulacao_*.csv")
+    # Constrói o caminho absoluto para a pasta CSVs a partir da localização do script
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    caminho_procura = os.path.join(script_dir, "CSVs", "historico_simulacao_*.csv")
+    ficheiros_csv = glob.glob(caminho_procura)
     
     if not ficheiros_csv:
         return pd.DataFrame(), None
@@ -85,7 +88,9 @@ def renderizar_modo_comparativo(df_dados, metrica):
     
     if metrica in df_dados.columns:
         # 1. Gráfico Principal (Evolução Temporal Conjunta)
-        df_grafico = df_dados.pivot(index="Tempo (s)", columns="Algoritmo", values=metrica)
+        # Removemos duplicatas de tempo para o mesmo algoritmo, guardando apenas a execução mais recente
+        df_limpo = df_dados.drop_duplicates(subset=["Tempo (s)", "Algoritmo"], keep="last")
+        df_grafico = df_limpo.pivot(index="Tempo (s)", columns="Algoritmo", values=metrica)
         st.line_chart(df_grafico, height=400)
         
         st.markdown("---")
@@ -169,9 +174,9 @@ def main():
 
     st.sidebar.markdown("---")
     st.sidebar.markdown("**Dashboard desenvolvido por:**")
-    renderizar_perfil_autor("eduarda.png", "Eduarda Pereira")
-    renderizar_perfil_autor("goncalo_f.png", "Gonçalo Ferreira")
-    renderizar_perfil_autor("goncalo_m.png", "Gonçalo Magalhães")
+    renderizar_perfil_autor("docs/assets/eduarda.png", "Eduarda Pereira")
+    renderizar_perfil_autor("docs/assets/goncalo_f.png", "Gonçalo Ferreira")
+    renderizar_perfil_autor("docs/assets/goncalo_m.png", "Gonçalo Magalhães")
 
     # --- RENDERIZAÇÃO DO CONTEÚDO PRINCIPAL ---
     if modo_visualizacao == "Individual (Modelo Específico)":

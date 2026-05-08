@@ -29,7 +29,7 @@ class SistemaDecisaoRL:
         assinatura_mapa += "|V:" + ",".join(str(r['id']) for r in configuracao.get('roads', []))
         self.hash_mapa = hashlib.md5(assinatura_mapa.encode()).hexdigest()[:8]
         
-        self.ficheiro_cerebro = f"q_table_mapa_{self.hash_mapa}.json"
+        self.ficheiro_cerebro = f"Q_tables/q_table_mapa_{self.hash_mapa}.json"
         
         # --- PARÂMETROS MATEMÁTICOS DO Q-LEARNING ---
         self.q_table = {}
@@ -59,7 +59,7 @@ class SistemaDecisaoRL:
             try:
                 with open(self.ficheiro_cerebro, 'r') as ficheiro:
                     q_table_chaves_str = json.load(ficheiro)
-                    # O JSON guarda chaves como string, temos de converter de volta para int (Estado)
+                    # O JSON guarda chaves como string, aqui converte-se de volta para int (Estado)
                     self.q_table = {int(k): v for k, v in q_table_chaves_str.items()}
                 print(f"[SD-RL] Cérebro carregado: {self.ficheiro_cerebro} ({len(self.q_table)} estados mapeados)")
                 self.precisa_treino = False

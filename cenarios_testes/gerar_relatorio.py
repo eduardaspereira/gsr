@@ -1,9 +1,18 @@
+# ==============================================================================
+# Ficheiro: cenarios_testes/gerar_relatorio.py
+# Autores: Eduarda Pereira, Gonçalo Ferreira, Gonçalo Magalhães
+# Descrição: Gerador de Relatórios e Gráficos de Desempenho. Este script 
+#            automatiza a leitura de dados de simulação (Excel) para diferentes 
+#            cenários de tráfego, produzindo visualizações comparativas entre 
+#            os algoritmos para análise de métricas críticas.
+# ==============================================================================
+
 import pandas as pd
 import matplotlib.pyplot as plt
 import os
 
 # =================================================================
-# 1. CONFIGURAÇÕES DE VISUAL
+# 1. CONFIGURAÇÕES VISUAIS
 # =================================================================
 cores = {
     "ROUND_ROBIN": "#E63946",   # Vermelho
@@ -12,7 +21,6 @@ cores = {
     "BACKPRESSURE": "#264653"   # Azul Escuro
 }
 
-# O que vamos analisar em cada um dos teus ficheiros Excel
 cenarios_setup = {
     "Cenario1": {"metrica": "Ocupacao Media", "titulo": "Cenário 1: Tráfego Leve (Ocupação Média da Rede)"},
     "Cenario2": {"metrica": "Fila Maxima", "titulo": "Cenário 2: Desequilíbrio (Crescimento de Fila Máxima)"},
@@ -34,16 +42,14 @@ for cenario, config in cenarios_setup.items():
         
     print(f"A processar {ficheiro_excel}...")
     
-    # Lê o Excel mágico que tu criaste!
     df = pd.read_excel(ficheiro_excel)
     
-    # Prepara a tela
     plt.figure(figsize=(10, 6), dpi=300)
     plt.title(config["titulo"], fontsize=14, fontweight='bold', pad=15)
     plt.xlabel("Tempo de Simulação (Segundos)", fontsize=12)
     plt.ylabel(metrica, fontsize=12)
     
-    # Vai à coluna "Algoritmo" e descobre quais lá estão (RR, RL, etc.)
+    # Procura na coluna algoritmo (RR, RL, etc.)
     algoritmos_no_excel = df['Algoritmo'].unique()
     
     for alg in algoritmos_no_excel:

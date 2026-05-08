@@ -68,10 +68,10 @@ historico_pedidos_ips = {}
 # 2. CARREGAMENTO DA CONFIGURAÇÃO E INICIALIZAÇÃO DA MIB
 # =====================================================================
 try:
-    with open('config3.json', 'r') as ficheiro_config:
-        cfg = json.load(ficheiro_config)
+    with open('Mapas/config4.json', 'r') as f:
+        cfg = json.load(f)
 except Exception as e:
-    print(f"[ERRO CRÍTICO] Não foi possível ler o 'config3.json': {e}")
+    print(f"[ERRO CRÍTICO] Não foi possível ler o ficheiro json': {e}")
     sys.exit(1)
 
 mib = {}
@@ -145,11 +145,13 @@ class ResponderSetSeguro(cmdrsp.SetCommandResponder):
                         estado_atual = {
                             "tempo": mib.get(f"{OID_BASE}.1.7.0", 0),
                             "algo_id": mib.get(f"{OID_BASE}.1.6.0", 4),
+                            "mapa_id": mib.get(f"{OID_BASE}.1.8.0", 3),
                             "filas": {r['id']: mib.get(f"{OID_BASE}.3.1.6.{r['id']}", 0) for r in cfg['roads']},
                             "semaforos": {tl['roadIndex']: mib.get(f"{OID_BASE}.4.1.3.{tl['roadIndex']}", 1) for tl in cfg['trafficLights']},
                             "rtgs": {r['id']: mib.get(f"{OID_BASE}.3.1.4.{r['id']}", 0) for r in cfg['roads'] if r['type'] == 3},
                             "overrides": {tl['roadIndex']: mib.get(f"{OID_BASE}.4.1.2.{tl['roadIndex']}", 0) for tl in cfg['trafficLights']},
-                            "links": {f"{l['src']}.{l['dest']}": mib.get(f"{OID_BASE}.5.1.4.{l['src']}.{l['dest']}", 0) for l in cfg.get('links', [])}
+                            "links": {f"{l['src']}.{l['dest']}": mib.get(f"{OID_BASE}.5.1.4.{l['src']}.{l['dest']}", 0) for l in cfg.get('links', [])},
+                            "cfg": cfg
                         }
                         resposta_encriptada = cifra.encrypt(json.dumps(estado_atual).encode('utf-8'))
                         novos_binds.append((oid, v2c.OctetString(resposta_encriptada)))
@@ -164,6 +166,10 @@ class ResponderSetSeguro(cmdrsp.SetCommandResponder):
                         
                     elif tipo_comando == "SET_ALG":
                         mib[f"{OID_BASE}.1.6.0"] = comando_json["alg_id"]
+                        novos_binds.append((oid, v2c.OctetString(cifra.encrypt(b'{"status": "sucesso"}'))))
+
+                    elif tipo_comando == "SET_MAPA":
+                        mib[f"{OID_BASE}.1.8.0"] = comando_json["mapa_id"]
                         novos_binds.append((oid, v2c.OctetString(cifra.encrypt(b'{"status": "sucesso"}'))))
 
                 except InvalidToken:
@@ -277,7 +283,7 @@ async def iniciar_sistema_central():
     motor_fisica = SistemaSimulacao(mib, cfg)
     
     # Prepara Ficheiro de Logs CSV
-    nome_ficheiro_csv = f"historico_simulacao_{algoritmo_ativo}.csv"
+    nome_ficheiro_csv = f"CSVs/historico_simulacao_{algoritmo_ativo}.csv"
     try:
         with open(nome_ficheiro_csv, mode='w', newline='') as ficheiro:
             escritor = csv.writer(ficheiro, delimiter=';') 
@@ -294,11 +300,54 @@ async def iniciar_sistema_central():
         marca_tempo_inicio = time.time()
         dicionario_traps_enviadas = {} 
         algoritmo_anterior = algoritmo_ativo
-
+        mapa_atual = 3
         print(f"\n=== SISTEMA CENTRAL A CORRER (UDP 16161) | Algoritmo: {algoritmo_ativo} ===")
         print(f"A exportar logs analíticos para: {nome_ficheiro_csv}")
         
         while True:
+            # --- 1.A VERIFICAR MUDANÇAS DINÂMICAS DE MAPA ---
+            id_novo_mapa = mib.get(f"{OID_BASE}.1.8.0", mapa_atual)
+            if id_novo_mapa != mapa_atual:
+                ficheiros_mapas = ["Mapas/config.json", "Mapas/config2.json", "Mapas/config3.json", "Mapas/config4.json"]
+                print(f"\n[HOT-SWAP] Alteração recebida: A carregar a topologia {ficheiros_mapas[id_novo_mapa]}...")
+                
+                try:
+                    with open(ficheiros_mapas[id_novo_mapa], 'r') as f:
+                        cfg.clear()
+                        cfg.update(json.load(f))
+                    
+                    # 1. Reset Total da MIB com a nova configuração
+                    algoritmo_salvo = mib.get(f"{OID_BASE}.1.6.0", 4)
+                    mib.clear()
+                    
+                    mib[f"{OID_BASE}.1.2.0"] = cfg['geral']['simStepDuration']
+                    mib[f"{OID_BASE}.1.4.0"] = cfg['geral']['algoMinGreenTime']
+                    mib[f"{OID_BASE}.1.5.0"] = cfg['geral']['algoYellowTime']
+                    mib[f"{OID_BASE}.1.6.0"] = algoritmo_salvo
+                    mib[f"{OID_BASE}.1.7.0"] = 0
+                    mib[f"{OID_BASE}.1.8.0"] = id_novo_mapa
+                    
+                    for rua in cfg['roads']:
+                        mib[f"{OID_BASE}.3.1.4.{rua['id']}"] = rua.get('rtg', 5)
+                        mib[f"{OID_BASE}.3.1.5.{rua['id']}"] = rua.get('maxCapacity', 999)
+                        mib[f"{OID_BASE}.3.1.6.{rua['id']}"] = rua.get('initialCount', 0)
+
+                    for semaforo in cfg['trafficLights']:
+                        id_rua = semaforo['roadIndex']
+                        mib[f"{OID_BASE}.4.1.2.{id_rua}"] = 0
+                        mib[f"{OID_BASE}.4.1.3.{id_rua}"] = 1
+                        mib[f"{OID_BASE}.4.1.4.{id_rua}"] = 0
+                        
+                    for ligacao in cfg.get('links', []):
+                        mib[f"{OID_BASE}.5.1.4.{ligacao['src']}.{ligacao['dest']}"] = 0
+
+                    # 2. Forçar a recriação do motor físico e de decisão
+                    algoritmo_anterior = None # Isto obriga o código abaixo (bloco 1.B) a correr
+                    mapa_atual = id_novo_mapa
+                    print("[HOT-SWAP] Novo mapa carregado!")
+                except Exception as e:
+                    print(f"[ERRO] Falha ao fazer Hot-Swap do mapa: {e}")
+
             # --- 1. VERIFICAR MUDANÇAS DINÂMICAS DE ALGORITMO ---
             id_novo_algoritmo = mib.get(f"{OID_BASE}.1.6.0", 4)
             algoritmo_ativo = MAPA_ALGORITMOS.get(id_novo_algoritmo, "BACKPRESSURE")
@@ -324,7 +373,7 @@ async def iniciar_sistema_central():
                 dicionario_traps_enviadas = {}
                 iteracao = 0
                 
-                nome_ficheiro_csv = f"historico_simulacao_{algoritmo_ativo}.csv"
+                nome_ficheiro_csv = f"CSVs/historico_simulacao_{algoritmo_ativo}.csv"
                 try:
                     with open(nome_ficheiro_csv, mode='w', newline='') as f:
                         writer = csv.writer(f, delimiter=';') 
@@ -357,7 +406,7 @@ async def iniciar_sistema_central():
             vias_saida = [str(rua['id']) for rua in cfg['roads'] if rua.get('type') == 2]
             vias_internas = [rua['id'] for rua in cfg['roads'] if str(rua['id']) not in vias_saida]
             
-            # BUG FIX: Conta todos os links que apontam para qualquer via do tipo 2
+            # Conta todos os links que apontam para qualquer via do tipo 2
             total_escoados = sum(mib.get(f"{OID_BASE}.5.1.4.{ligacao['src']}.{ligacao['dest']}", 0) 
                                  for ligacao in cfg.get('links', []) 
                                  if str(ligacao['dest']) in vias_saida)
@@ -391,7 +440,8 @@ async def iniciar_sistema_central():
                 print(f"[MONITOR {algoritmo_ativo}] T={tempo_decorrido}s | Escoados: {total_escoados} v | Fila Máx: {maxima_fila} v")
             
             iteracao += 1
-            await asyncio.sleep(duracao_passo)
+            # Acelera em 10x ticks
+            await asyncio.sleep(duracao_passo/10.0)
 
     await ciclo_simulacao()
 

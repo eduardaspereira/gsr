@@ -71,10 +71,15 @@ class SistemaSimulacao:
                     carros_atuais = self.mib_partilhada.get(f"{self.base_oid}.3.1.6.{id_via}", 0)
                     capacidade_max = self.mib_partilhada.get(f"{self.base_oid}.3.1.5.{id_via}", 999)
                     
-                    if carros_atuais + carros_adicionados <= capacidade_max:
-                        self.mib_partilhada[f"{self.base_oid}.3.1.6.{id_via}"] = carros_atuais + carros_adicionados
+                    # Enche a via apenas com o que cabe
+                    espaco_livre = capacidade_max - carros_atuais
+                    carros_reais_a_adicionar = min(carros_adicionados, espaco_livre)
                     
-                    # Deduz apenas a parte inteira (mantém a parte decimal para o próximo ciclo)
+                    if carros_reais_a_adicionar > 0:
+                        self.mib_partilhada[f"{self.base_oid}.3.1.6.{id_via}"] = carros_atuais + carros_reais_a_adicionar
+                    
+                    # Deduz sempre do acumulador a totalidade dos carros gerados 
+                    # (o excesso não entra na rede)
                     self.acumuladores_entrada[id_via] -= carros_adicionados
 
     def _processar_movimentos(self, duracao):
