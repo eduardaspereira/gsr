@@ -39,6 +39,7 @@ estado_filas = {}
 estado_rtg = {}
 estado_override = {}
 estado_links = {}
+mapeamento_via_semaforo = {}  # Mapeia vias de entrada/saída aos seus semáforos de controlo
 
 snmp_loop = None 
 alerta_trap = {"ativo": False, "via": 0, "carros": 0, "expira": 0}
@@ -47,6 +48,47 @@ confirmacao_algoritmo = {"ativo": False, "tempo": 0}
 # Variáveis partilhadas via builtins para acesso entre threads
 builtins._tempo_execucao_snmp = 0
 builtins._algo_id_snmp = 4  
+
+# =====================================================================
+# 1.1 FUNÇÕES AUXILIARES DE CONFIGURAÇÃO
+# =====================================================================
+def gerar_mapeamento_semaforos_vias(cfg_atual):
+    """
+    Mapeia as vias de entrada e saída (tipos 2 e 3) aos seus semáforos de controlo.
+    Uma via de entrada/saída é controlada pelo semáforo do seu cruzamento de origem/destino.
+    """
+    import re
+    mapeamento = {}
+    
+    # Extrair informações dos semáforos por cruzamento
+    semaforos_por_cruzamento = {}
+    for tl in cfg_atual.get('trafficLights', []):
+        cr_id = tl['crID']
+        road_idx = tl['roadIndex']
+        if cr_id not in semaforos_por_cruzamento:
+            semaforos_por_cruzamento[cr_id] = []
+        semaforos_por_cruzamento[cr_id].append(road_idx)
+    
+    # Processar vias de entrada/saída
+    for via in cfg_atual.get('roads', []):
+        via_id = via['id']
+        via_type = via['type']
+        via_name = via.get('name', '')
+        
+        # Extrair ID do cruzamento do nome (ex: "Saida (C1->)" ou "Input (->C2)")
+        match = re.search(r'C(\d+)', via_name)
+        if match:
+            cruzamento_id = int(match.group(1))
+            
+            # Se a via é de entrada (type 3) ou saída (type 2)
+            if via_type in [2, 3]:
+                # Encontrar o primeiro semáforo do cruzamento para usar como referência
+                if cruzamento_id in semaforos_por_cruzamento:
+                    semaforo_primario = semaforos_por_cruzamento[cruzamento_id][0]
+                    # Mapear: se o semáforo primário muda de cor, esta via também muda
+                    mapeamento[via_id] = semaforo_primario
+    
+    return mapeamento
 
 # Carregamento inicial da configuração base
 try:
@@ -60,6 +102,7 @@ estado_filas.update({r['id']: r.get('initialCount', 0) for r in cfg.get('roads',
 estado_rtg.update({r['id']: r.get('rtg', 0) for r in cfg.get('roads', []) if r['type'] == 3})
 estado_override.update({tl['roadIndex']: 0 for tl in cfg.get('trafficLights', [])})
 estado_links.update({f"{l['src']}.{l['dest']}": 0 for l in cfg.get('links', [])})
+mapeamento_via_semaforo.update(gerar_mapeamento_semaforos_vias(cfg))
 
 
 # =====================================================================
@@ -502,6 +545,8 @@ def iniciar_dashboard():
                 estado_override.update({tl['roadIndex']: 0 for tl in cfg['trafficLights']})
                 estado_links.clear()
                 estado_links.update({f"{l['src']}.{l['dest']}": 0 for l in cfg.get('links', [])})
+                mapeamento_via_semaforo.clear()
+                mapeamento_via_semaforo.update(gerar_mapeamento_semaforos_vias(cfg))
                 
                 pos_nos_base, pos_arestas_base = gerar_topologia_dinamica(cfg, RESOLUCAO_BASE)
                 via_selecionada = None
@@ -556,6 +601,8 @@ def iniciar_dashboard():
                             estado_override.update({tl['roadIndex']: 0 for tl in cfg['trafficLights']})
                             estado_links.clear()
                             estado_links.update({f"{l['src']}.{l['dest']}": 0 for l in cfg.get('links', [])})
+                            mapeamento_via_semaforo.clear()
+                            mapeamento_via_semaforo.update(gerar_mapeamento_semaforos_vias(cfg))
                             
                             pos_nos_base, pos_arestas_base = gerar_topologia_dinamica(cfg, RESOLUCAO_BASE)
                             via_selecionada = None
@@ -669,7 +716,13 @@ def iniciar_dashboard():
             
             # Cor do Semáforo (Vermelho, Verde, Amarelo)
             cor_via = (80, 80, 80)
-            if id_via in estado_semaforos:
+            # Verificar se é uma via de entrada/saída mapeada a um semáforo
+            if id_via in mapeamento_via_semaforo:
+                semaforo_controlo = mapeamento_via_semaforo[id_via]
+                if semaforo_controlo in estado_semaforos:
+                    st = estado_semaforos[semaforo_controlo]
+                    cor_via = (200, 50, 50) if st == 1 else (50, 200, 50) if st == 2 else (200, 150, 50)
+            elif id_via in estado_semaforos:
                 st = estado_semaforos[id_via]
                 cor_via = (200, 50, 50) if st == 1 else (50, 200, 50) if st == 2 else (200, 150, 50)
             
