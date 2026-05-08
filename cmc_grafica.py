@@ -696,9 +696,10 @@ def iniciar_dashboard():
         for id_no, pos_base in pos_nos_base.items():
             posicao_real = (int(pos_base[0] * escala_x), int(pos_base[1] * escala_y))
             if id_no.startswith('C'):
-                raio = escalar_valor(25, escala_global)
-                pygame.draw.circle(ecra, (35, 40, 45), posicao_real, raio)
-                pygame.draw.circle(ecra, (200, 200, 200), posicao_real, raio, 3)
+                tamanho_quad = escalar_valor(50, escala_global)
+                rect_quad = pygame.Rect(posicao_real[0] - tamanho_quad // 2, posicao_real[1] - tamanho_quad // 2, tamanho_quad, tamanho_quad)
+                pygame.draw.rect(ecra, (35, 40, 45), rect_quad)
+                pygame.draw.rect(ecra, (200, 200, 200), rect_quad, 3)
                 superficie_no = fonte_grande.render(id_no, True, (255, 255, 255))
                 ecra.blit(superficie_no, superficie_no.get_rect(center=posicao_real))
 
