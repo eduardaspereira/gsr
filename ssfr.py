@@ -12,7 +12,7 @@ import random
 
 class SistemaSimulacao:
     """
-    Motor principal de simulação de tráfego 
+    Motor principal de simulação de tráfego. 
     Lê e atualiza a Base de Informação de Gestão (MIB) em tempo real, 
     simulando a física do trânsito a cada ciclo de tempo.
     """
