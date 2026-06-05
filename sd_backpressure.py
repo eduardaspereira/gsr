@@ -12,7 +12,7 @@ import asyncio
 
 class SistemaDecisaoBackpressure:
     """
-    Implementa a lógica de decisão de tráfego baseada na política de Backpressure.
+    Implementa a lógica de decisao de tráfego baseada na política de Backpressure.
     """
     def __init__(self, mib_partilhada, configuracao):
         self.mib_partilhada = mib_partilhada

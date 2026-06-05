@@ -11,7 +11,7 @@ import asyncio
 
 class SistemaDecisaoRoundRobin:
     """
-    Controlador semafórico de ciclo estático.
+    Controlador semaforico de ciclo estático.
     Garante a exclusão mútua dos eixos e alterna de forma contínua e previsível.
     """
     def __init__(self, mib_partilhada, configuracao):

@@ -3,7 +3,7 @@
 # Autores: Eduarda Pereira, Gonçalo Ferreira, Gonçalo Magalhães
 # Descrição: Consola de Monitorização e Controlo. 
 #            Permite ao administrador enviar comandos para o Sistema Central 
-#            via terminal, utilizando o mesmo mecanismo de Túnel Seguro (JSON + Fernet).
+#            via terminal,, utilizando o mesmo mecanismo de Túnel Seguro (JSON + Fernet).
 # ==============================================================================
 
 import sys

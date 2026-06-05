@@ -12,7 +12,7 @@ import asyncio
 
 class SistemaDecisaoOcupacao:
     """
-    Controlador semafórico que define tempos de verde proporcionais ao volume de tráfego.
+    Controlador semaforico que define tempos de verde proporcionais ao volume de tráfego.
     Garante a segurança do cruzamento alternando entre Eixos (Axis 1 e Axis 2).
     """
     def __init__(self, mib_partilhada, configuracao):

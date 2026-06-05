@@ -15,7 +15,7 @@ import hashlib
 
 class SistemaDecisaoRL:
     """
-    Agente Q-Learning para otimização de semáforos.
+    Agente Q-Learning para otimizaçao de semáforos.
     Utiliza uma Q-Table persistente e recompensas baseadas na variação do número
     de veículos à espera no cruzamento.
     """

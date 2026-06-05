@@ -1,6 +1,6 @@
 # ==============================================================================
 # Ficheiro: gerar_cofre.py
-# Autores: Eduarda Pereira, Gonçalo Ferreira, Gonçalo Magalhães
+# Autores: Eduarda Pereira,, Gonçalo Ferreira, Gonçalo Magalhães
 # Descrição: Script de inicialização da segurança criptográfica. 
 #            Implementa a arquitetura KEK/DEK: gera a Chave Mestra (DEK) para 
 #            as comunicações SNMP e protege-a num ficheiro físico ('seguranca.key')

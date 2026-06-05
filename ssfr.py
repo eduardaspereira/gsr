@@ -84,7 +84,7 @@ class SistemaSimulacao:
 
     def _processar_movimentos(self, duracao):
         """
-        2. DISTRIBUIÇÃO E ESCOAMENTO NOS CRUZAMENTOS
+        2. DISTRIBUIÇÃO0 E ESCOAMENTO NOS CRUZAMENTOS
         Avalia os semáforos, calcula a probabilidade de FlowRate e 
         move os veículos de uma via para a próxima, tratando limites físicos.
         """
