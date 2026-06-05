@@ -1,6 +1,6 @@
 ## Algoritmos
 
-Com o objetivo principal de minimizar os tempos médios de espera globais, foi projetada uma arquitetura modular que permite a avaliação comparativa de diferentes abordagens algorítmicas. Abaixo detalham-se os algoritmos a serem estudados, as métricas de avaliação extraídas via SNMP e os cenários de teste aplicados.
+Com o objetivo principal, de minimizar os tempos médios de espera globais, foi projetada uma arquitetura modular que permite a avaliação comparativa de diferentes abordagens algorítmicas. Abaixo detalham-se os algoritmos a serem estudados, as métricas de avaliação extraídas via SNMP e os cenários de teste aplicados.
 
 - **Algoritmos**: 
   - *Ciclo Fixo (Round-Robin)*: Abordagem de baseline estática. Atribui tempos específicos de abertura do semáforo definidos nas configurações, ignorando o tráfego real.

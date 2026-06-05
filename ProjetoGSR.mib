@@ -24,7 +24,7 @@ trafficMgmtMIB MODULE-IDENTITY
     DESCRIPTION
         "MIB experimental para gestao de trafego rodoviario urbano.
          Define objetos para monitorizacao e controlo de um sistema
-         de simulacao de trafego com cruzamentos vias e semaforos."
+         de simulacao de trafego com cruzamentos, vias e semaforos."
     REVISION "202603060000Z"
     DESCRIPTION
         "Versao inicial da MIB (Fase A)."

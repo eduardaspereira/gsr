@@ -18,9 +18,9 @@
 
 - **[Essencial]** O SSFR deve ser implementado como um componente interno do próprio SC, permitindo a manipulação direta dos objetos da MIB sem recorrer a comunicações externas (SNMP).
 
-- **[Essencial]** Nas situações em que um semáforo liga a múltiplas vias de destino (bifurcações), o SSFR deve distribuir a passagem dos veículos respeitando o ritmo/percentagem configurado para cada via destino.
+- **[Essencial]** Nas situações em que um semáforo, liga a múltiplas vias de destino (bifurcações), o SSFR deve distribuir a passagem dos veículos respeitando o ritmo/percentagem configurado para cada via destino.
 
-- **[Essencial]** O SSFR deve suportar um tipo especial de via de escoamento que não tem vias de destino, limitando-se a retirar veículos da rede simulada a um ritmo fixo.
+- **[Essencial]** O SSFR deve então suportar um tipo especial de via de escoamento que não tem vias de destino, limitando-se a retirar veículos da rede simulada a um ritmo fixo.
 
 # Sistema de Decisão (SD)
 - **[Básico]** O SD deve atualizar a cor e o tempo restante do semáforo diretamente nos objetos correspondentes na MIB do SC.
