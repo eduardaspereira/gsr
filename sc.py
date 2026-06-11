@@ -2,7 +2,7 @@
 # Ficheiro: sc.py
 # Autores: Eduarda Pereira, Gonçalo Ferreira, Gonçalo Magalhães
 # Descrição: Sistema Central.
-#            Atua,como o servidor do projeto,  mantendo a MIB em memória, gerindo
+#            Atua,como o servidor do projeto, mantendo a MIB em memória, gerindo
 #            a simulação física (SSFR) e instanciando os Sistemas de Decisão. 
 #            Implementa Defesa Ativa bloqueando acessos em
 #            plain-text e processando apenas comandos via Túnel Seguro (Fernet).
