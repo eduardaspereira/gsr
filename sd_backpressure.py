@@ -29,7 +29,7 @@ class SistemaDecisaoBackpressure:
             }
 
     async def start(self):
-        """Ciclo de vida  independente."""
+        """Ciclo de vida   independente."""
         pass
 
     async def update(self, current_step=None, fast_forward_step=None):
