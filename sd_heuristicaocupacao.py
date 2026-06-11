@@ -4,7 +4,7 @@
 # Descrição: Sistema de Decisão Baseado em Heurística de Ocupação.
 #            Ao contrário de um ciclo fixo, este algoritmo alterna
 #            os eixos de um cruzamento, mas calcula o tempo de Verde dinamicamente
-#            baseando-se no número de veículos em espera,
+#            baseando-se no número de veículos em esper,
 #            limitado por valores de segurança para evitar starvation da rede.
 # ==============================================================================
 

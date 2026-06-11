@@ -3,7 +3,7 @@
 # Autores: Eduarda Pereira, Gonçalo Ferreira, Gonçalo Magalhães
 # Descrição: Sistema de Decisão baseado em Aprendizagem por Reforço (Q-Learning).
 #            Cada cruzamento age como um Agente autónomo que aprende a melhor 
-#            duração de verde (Ação), para um dado volume de trânsito (Estado),
+#            duração de verde (Ação),para um dado volume de trânsito (Estado),
 #            maximizando o escoamento local (Recompensa).
 # ==============================================================================
 

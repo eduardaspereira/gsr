@@ -1,7 +1,7 @@
 # ==============================================================================
 # Ficheiro: dashboard.py
 # Autores: Eduarda Pereira, Gonçalo Ferreira, Gonçalo Magalhães
-# Descrição: Dashboard desenvolvido em  
+# Descrição: Dashboard desenvolvidoem  
 #            Streamlit para visualização em tempo real do desempenho dos 
 #            diferentes motores de decisão, lendo os logs CSV do Sistema Central.
 # ==============================================================================

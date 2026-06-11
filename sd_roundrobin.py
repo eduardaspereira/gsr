@@ -3,7 +3,7 @@
 # Autores: Eduarda Pereira, Gonçalo Ferreira, Gonçalo Magalhães
 # Descrição: Sistema de Decisão Baseado em Round-Robin.
 #            Este algoritmo atua como a baseline do projeto.
-#            É "cego" ao volume de tráfego, alternando a luz verde entre o Eixo 1 
+#            É "cego" ao volume de tráfego,alternando a luz verde entre o Eixo 1 
 #            e o Eixo 2 de cada cruzamento de forma estática e periódica.
 # ==============================================================================
 
