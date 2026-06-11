@@ -97,7 +97,7 @@ async def enviar_comando_tunel(ip, porta, comunidade, dicionario_payload, cifra)
     if erro_ind or erro_est:
         return "[ERRO DE REDE] O pacote seguro foi rejeitado ou falhou."
     else:
-        return f"[SUCESSO] Comando {dicionario_payload['comando']} entregue e validado!"
+        return f"[SUCESSO]Comando {dicionario_payload['comando']} entregue e validado!"
 
 
 async def obter_dados_snmp(cifra):
