@@ -12,7 +12,7 @@ import asyncio
 
 class SistemaDecisaoBackpressure:
     """
-    Implementa a lógica de decisao de tráfego baseada na política de Backpressure.
+    Implementa a lógica de decisao  de tráfego baseada na política de Backpressure.
     """
     def __init__(self, mib_partilhada, configuracao):
         self.mib_partilhada = mib_partilhada
@@ -23,13 +23,13 @@ class SistemaDecisaoBackpressure:
         self.estado_cruzamentos = {}
         for cruzamento in configuracao['crossroads']:
             self.estado_cruzamentos[cruzamento['id']] = {
-                'eixo_ativo': 2, # Começa no eixo 2 por defeito
+                'eixo_ativo': 2, # Começa  no eixo 2 por defeito
                 'cor_eixo': 2,   # Cores: 1 = Vermelho, 2 = Verde, 3 = Amarelo
                 'tempo_restante': 15
             }
 
     async def start(self):
-        """Ciclo de vida independente."""
+        """Ciclo de vida  independente."""
         pass
 
     async def update(self, current_step=None, fast_forward_step=None):
