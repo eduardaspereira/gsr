@@ -49,7 +49,7 @@ stats_global = {
 # =====================================================================
 def inicializar_cifra_segura():
     print("=====================================================")
-    print("=== INICIALIZAÇÃO SEGURA (CMC CLI) ===")
+    print("=== INICIALIZAÇÃO SEGURA ===")
     print("=====================================================")
     
     if len(sys.argv) < 2:
