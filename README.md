@@ -65,9 +65,20 @@ Project designed and built in a balanced cross-functional collaboration
 ## Screenshots
 ![Maps available](docs/assets/3maps.png)
 *These are the three maps available*
+<br><br>
+<br><br>
+
 ![Textual control and monitoring central](docs/assets/textCMC.png)
 *Here the user can control and monitor the network in a textual CMC*
+<br><br>
+<br><br>
+
+
 ![Graphic control and monitoring central](docs/assets/graphicCMC.png)
-*Here the user can control and monitor the network in a graphic CMC*
+*Here the user can control and monitor the network in a graphic CMC, that includes a textual CMC*
+<br><br>
+<br><br>
+
+
 ![Online dashboard](docs/assets/dashboard.png)
 *This is an online dashboard with all the analytics.*
