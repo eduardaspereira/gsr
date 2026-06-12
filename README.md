@@ -60,3 +60,14 @@ Project designed and built in a balanced cross-functional collaboration
 * Eduarda Pereira (PG61516) 
 * Gonçalo Ferreira (PG61525) 
 * Gonçalo Magalhães (PG61524) 
+
+---
+## Screenshots
+![Maps available](docs/assets/3maps.png)
+*These are the three maps available*
+![Textual control and monitoring central](docs/assets/textCMC.png)
+*Here the user can control and monitor the network in a textual CMC*
+![Graphic control and monitoring central](docs/assets/graphicCMC.png)
+*Here the user can control and monitor the network in a graphic CMC*
+![Online dashboard](docs/assets/dashboard.png)
+*This is an online dashboard with all the analytics.*
