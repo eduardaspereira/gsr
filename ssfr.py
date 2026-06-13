@@ -2,7 +2,7 @@
 # Ficheiro: ssfr.py
 # Autores: Eduarda Pereira, Gonçalo Ferreira, Gonçalo Magalhães
 # Descrição: Sistema de Simulação de Fluxo de Rede (SSFR). Este módulo atua
-#            como omotor físico do simulador, sendo responsável por injetar, 
+#            como o motor físico do simulador, sendo responsável por injetar, 
 #            movimentar e escoar os veículos através das vias com base no estado 
 #            dos semáforos, Taxa de Geração (RTG) e capacidade das ruas.
 # ==============================================================================

@@ -3,7 +3,7 @@
 # Autores: Eduarda Pereira, Gonçalo Ferreira, Gonçalo Magalhães
 # Descrição: Sistema de Decisão Baseado em Algoritmo de Backpressure.
 #            Este algoritmo controla os semáforos calculando a "pressão" de 
-#            tráfego (diferença entre o tamanho da fila naorigem e no destino).
+#            tráfego (diferença entre o tamanho da fila na origem e no destino).
 #            O eixo do cruzamento com maior pressão acumulada recebe semáforo verde,
 #            maximizando o escoamento dinâmico e contínuo da rede.
 # ==============================================================================

@@ -95,7 +95,7 @@ async def enviar_comando_tunel(ip, porta, comunidade, dicionario_payload, cifra)
 
     # Em vez de imprimir e quebrar a UI, devolvemos a mensagem de sucesso/erro
     if erro_ind or erro_est:
-        return "[ERRO DE REDE]O pacote seguro foi rejeitado ou falhou."
+        return "[ERRO DE REDE] O pacote seguro foi rejeitado ou falhou."
     else:
         return f"[SUCESSO] Comando {dicionario_payload['comando']} entregue e validado!"
 
